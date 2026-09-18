@@ -1,0 +1,6 @@
+Iniciando teste de desempenho: 2000 transacoes simuladas com a FPGA...
+Tempo total: 142525 ns
+Throughput: 14032625 transacoes/segundo (aprox.)
+Latencia media por transacao: 71 ns
+(valores absolutos dependem do hardware onde for executado; a
+metodologia de medicao via clock_gettime e' a mesma em qualquer aarch64)

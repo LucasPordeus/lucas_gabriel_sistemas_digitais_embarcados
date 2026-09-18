@@ -1,0 +1,6 @@
+[poll] veiculo detectado (borda de subida do sensor)
+[poll] veiculo detectado (borda de subida do sensor)
+[poll] solicitacao de pedestre recebida (borda do botao)
+[poll] veiculo detectado (borda de subida do sensor)
+[poll] solicitacao de pedestre recebida (borda do botao)
+Resumo: veiculos=3 solicitacoes=2

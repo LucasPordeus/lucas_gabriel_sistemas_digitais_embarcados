@@ -1,0 +1,3 @@
+Modo simulado: /dev/gpiomem indisponivel, usando memoria anonima
+GPIO17 lido como ALTO (1) apos GPSET0
+GPIO17 lido como BAIXO (0) apos GPCLR0

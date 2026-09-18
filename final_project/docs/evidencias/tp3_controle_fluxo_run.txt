@@ -1,0 +1,5 @@
+[cmd] OP_TEMPO_MIN     valor=20
+[cmd] OP_TEMPO_AMARELO valor=3
+[cmd] OP_LIMIAR_BAIXO  valor=3
+[cmd] OP_LIMIAR_ALTO   valor=8
+[cmd] OP_LIMIAR_ALTO   valor=63

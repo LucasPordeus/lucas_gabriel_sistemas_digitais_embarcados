@@ -1,0 +1,16 @@
+VCD info: dumpfile tb_top_semaforo.vcd opened for output.
+[OK]    estado inicial seguro: veiculos=VERDE, pedestre=VERMELHO
+[OK]    nivel_fluxo=BAIXO por padrao (nenhum veiculo ainda)
+[OK]    tempo_min_efetivo=5 (metade do padrao, trafego baixo -> pedestre liberado mais rapido)
+[OK]    tempo_min_reg atualizado para 3 via protocolo serial
+[OK]    tempo_amarelo_reg atualizado para 2 via protocolo serial
+[OK]    3 veiculos contados corretamente (ponteiro_escrita_w=3)
+[INFO]  trafego BAIXO: 11 ciclos ate o inicio do amarelo (tempo_min_efetivo=5)
+[OK]    nivel_fluxo=ALTO apos burst real de 50 veiculos em ~5 janelas
+[OK]    tempo_min_efetivo=20 (dobro do padrao, trafego alto -> pedestre espera mais)
+[INFO]  trafego ALTO: 14 ciclos ate o inicio do amarelo (tempo_min_efetivo=20)
+[OK]    comportamento dinamico confirmado: trafego alto atrasa a liberacao do pedestre (14 > 11 ciclos)
+[OK]    telemetria de fase (10) bate com estado_carro real
+[OK]    telemetria de contagem regressiva (5) bate com a FSM real (referencia=4) -- e' o valor que alimentaria o countdown da Raspberry Pi
+RESULTADO: TODOS OS CASOS PASSARAM (12/12)
+tb/tb_top_semaforo.v:294: $finish called at 13206000 (1ps)

@@ -1,0 +1,26 @@
+// tangnano4k.cst - Constraints de pino (Gowin EDA) - Tang Nano 4K (GW1NSR-LV4C QFN48P)
+// Pinout inicial definido no TP2. Evolui nos proximos TPs conforme novos
+// sinais (strobe/ack, dados seriais, etc.) sao adicionados.
+// OBS: numeros de pino baseados no pinout de referencia do kit Sipeed Tang
+// Nano 4K; confirmar contra a serigrafia da placa antes de gravar.
+
+// Clock e reset
+IO_LOC "clk"        "27";   // clock onboard de 27 MHz
+IO_LOC "rst_n"      "17";   // botao RESET onboard (ativo em nivel baixo)
+
+// Entradas digitais (sensor de veiculos e botao de pedestre)
+IO_LOC "sensor_raw" "28";   // sensor de obstaculo IR (saida digital direta 3.3V)
+IO_LOC "botao_raw"  "29";   // botao de pedestre (pull-down externo)
+
+// Saidas de LED de teste (semaforo de veiculos, preliminar)
+IO_LOC "led_vermelho" "16";
+IO_LOC "led_amarelo"  "15";
+IO_LOC "led_verde"    "14";
+
+IO_PORT "clk"        IO_TYPE=LVCMOS33;
+IO_PORT "rst_n"      IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "sensor_raw" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_PORT "botao_raw"  IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_PORT "led_vermelho" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_PORT "led_amarelo"  IO_TYPE=LVCMOS33 DRIVE=8;
+IO_PORT "led_verde"    IO_TYPE=LVCMOS33 DRIVE=8;

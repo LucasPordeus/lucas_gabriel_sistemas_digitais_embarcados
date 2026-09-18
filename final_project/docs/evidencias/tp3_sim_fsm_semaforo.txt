@@ -1,0 +1,9 @@
+VCD info: dumpfile tb_fsm_semaforo.vcd opened for output.
+[OK]    estado inicial = CARRO_VERDE
+[OK]    sem solicitacao pendente, permanece em CARRO_VERDE (seguranca)
+[OK]    transicionou para CARRO_AMARELO ao registrar solicitacao
+[OK]    entrou em PEDESTRE_VERDE apos tempo_amarelo, com verde_pedestre=1
+[OK]    limpa_solicitacao pulsado corretamente
+[OK]    retornou para CARRO_VERDE, ciclo completo validado
+RESULTADO: TODOS OS CASOS PASSARAM (5/5)
+tb/tb_fsm_semaforo.v:92: $finish called at 206000 (1ps)

@@ -1,0 +1,6 @@
+VCD info: dumpfile tb_contador_tempo.vcd opened for output.
+[OK]    carga do valor inicial (5) funcionou
+[OK]    contador zerou apos 5 ciclos, como esperado
+[OK]    contador satura em zero corretamente
+RESULTADO: TODOS OS CASOS PASSARAM (3/3)
+tb/tb_contador_tempo.v:54: $finish called at 115000 (1ps)

@@ -1,0 +1,4 @@
+Soma 128 bits: hi=2 lo=0x0000000000000001
+Media (int->float->int) = 9
+Status decodificado: sensor=1 botao=1
+Nivel de fluxo (lookup): MEDIO

@@ -1,0 +1,7 @@
+VCD info: dumpfile tb_protocolo_serial.vcd opened for output.
+[OK]    miso em alta impedancia (Hi-Z) fora do quadro
+[OK]    MISO ja apresenta o MSB da telemetria ao iniciar o quadro (handshake)
+[OK]    comando_recebido=0x85 corretamente apos 8 pulsos de sclk
+[OK]    miso volta a alta impedancia ao fim do quadro (handshake completo)
+RESULTADO: TODOS OS CASOS PASSARAM (4/4)
+tb/tb_protocolo_serial.v:98: $finish called at 556000 (1ps)

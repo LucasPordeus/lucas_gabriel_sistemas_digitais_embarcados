@@ -1,0 +1,7 @@
+VCD info: dumpfile tb_top_semaforo.vcd opened for output.
+[OK]    estado inicial seguro: veiculos=VERDE, pedestre=VERMELHO
+[OK]    tempo_min_reg atualizado para 3 via protocolo serial
+[OK]    3 veiculos contados corretamente (ponteiro_escrita_w=3)
+[OK]    pedestre recebeu verde apos o ciclo completo da FSM
+RESULTADO: TODOS OS CASOS PASSARAM (4/4)
+tb/tb_top_semaforo.v:112: $finish called at 1896000 (1ps)

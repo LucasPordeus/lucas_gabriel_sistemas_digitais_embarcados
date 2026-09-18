@@ -1,0 +1,6 @@
+VCD info: dumpfile tb_debounce.vcd opened for output.
+[OK]    ruido de bouncing ignorado (out_stable ainda em 0)
+[OK]    nivel estavel em 1 propagou para out_stable apos 4 ciclos
+[OK]    nivel estavel em 0 propagou para out_stable apos 4 ciclos
+RESULTADO: TODOS OS CASOS PASSARAM (3/3)
+tb/tb_debounce.v:71: $finish called at 175000 (1ps)

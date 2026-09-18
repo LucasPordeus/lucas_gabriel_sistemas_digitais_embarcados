@@ -1,0 +1,2 @@
+Somas por via (NEON, inteiro): 7 9 7 10 
+Medias ponderadas por via (NEON, float, trunc.): 7 13 3 20 

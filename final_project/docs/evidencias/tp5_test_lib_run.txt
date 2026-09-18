@@ -1,0 +1,5 @@
+[OK] str_len
+[OK] uint_to_dec
+1234
+[OK] cbuf push/pop (FIFO correto)
+[OK] gpio_lib (set/read/clear)

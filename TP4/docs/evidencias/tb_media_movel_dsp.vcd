@@ -1,0 +1,235 @@
+$date
+	Wed Sep 16 02:13:20 2026
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module tb_media_movel_dsp $end
+$var wire 2 ! nivel_fluxo [1:0] $end
+$var wire 8 " media [7:0] $end
+$var reg 8 # amostra [7:0] $end
+$var reg 1 $ clk $end
+$var reg 6 % limiar_alto [5:0] $end
+$var reg 6 & limiar_baixo [5:0] $end
+$var reg 1 ' nova_amostra $end
+$var reg 1 ( rst_n $end
+$var integer 32 ) erros [31:0] $end
+$scope module dut $end
+$var wire 8 * amostra [7:0] $end
+$var wire 1 $ clk $end
+$var wire 6 + limiar_alto [5:0] $end
+$var wire 6 , limiar_baixo [5:0] $end
+$var wire 1 ' nova_amostra $end
+$var wire 1 ( rst_n $end
+$var wire 11 - soma_novo [10:0] $end
+$var wire 28 . produto_arred [27:0] $end
+$var wire 28 / produto [27:0] $end
+$var parameter 32 0 N_JANELA $end
+$var parameter 17 1 RECIPROCO_Q16 $end
+$var reg 8 2 media [7:0] $end
+$var reg 2 3 nivel_fluxo [1:0] $end
+$var reg 11 4 soma [10:0] $end
+$var integer 32 5 i [31:0] $end
+$upscope $end
+$scope task envia_amostra $end
+$var reg 8 6 v [7:0] $end
+$upscope $end
+$scope task espera_ciclos $end
+$var integer 32 7 j [31:0] $end
+$var integer 32 8 n [31:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+b11001100110011 1
+b101 0
+$end
+#0
+$dumpvars
+b10 8
+b0 7
+bx 6
+b101 5
+b0 4
+b0 3
+b0 2
+b0 /
+b1000000000000000 .
+b0 -
+b1111 ,
+b11001 +
+b0 *
+b0 )
+0(
+0'
+b1111 &
+b11001 %
+0$
+b0 #
+b0 "
+b0 !
+$end
+#5000
+b101 5
+1$
+#6000
+b1 7
+#10000
+0$
+#15000
+b101 5
+1$
+#16000
+b1 8
+1(
+b0 7
+#20000
+0$
+#25000
+1$
+#26000
+1'
+b100111111111111110 .
+b11111111111111110 /
+b1010 -
+b1010 #
+b1010 *
+b1010 6
+b0 7
+#30000
+0$
+#35000
+b10 "
+b10 2
+b1000111111111111100 .
+b111111111111111100 /
+b10100 -
+b1010 4
+b0 5
+1$
+#36000
+0'
+b0 7
+#40000
+0$
+#45000
+1$
+#46000
+1'
+b0 7
+#50000
+0$
+#55000
+b100 "
+b100 2
+b1100111111111111010 .
+b1011111111111111010 /
+b11110 -
+b10100 4
+b0 5
+1$
+#56000
+0'
+b0 7
+#60000
+0$
+#65000
+1$
+#66000
+1'
+b0 7
+#70000
+0$
+#75000
+b110 "
+b110 2
+b10000111111111111000 .
+b1111111111111111000 /
+b101000 -
+b11110 4
+b0 5
+1$
+#76000
+0'
+b0 7
+#80000
+0$
+#85000
+1$
+#86000
+1'
+b0 7
+#90000
+0$
+#95000
+b1000 "
+b1000 2
+b10100111111111110110 .
+b10011111111111110110 /
+b110010 -
+b101000 4
+b0 5
+1$
+#96000
+0'
+b0 7
+#100000
+0$
+#105000
+1$
+#106000
+1'
+b0 7
+#110000
+0$
+#115000
+b1010 "
+b1010 2
+b110010 4
+b10100111111111110110 .
+b10011111111111110110 /
+b110010 -
+b0 5
+1$
+#116000
+0'
+b0 7
+#120000
+0$
+#125000
+1$
+#126000
+1'
+b101000111111111101100 .
+b100111111111111101100 /
+b1100100 -
+b111100 #
+b111100 *
+b111100 6
+b0 7
+#130000
+0$
+#135000
+b1 !
+b1 3
+b10100 "
+b10100 2
+b111100111111111100010 .
+b111011111111111100010 /
+b10010110 -
+b1100100 4
+b0 5
+1$
+#136000
+0'
+b0 7
+#140000
+0$
+#145000
+1$
+#146000
+b1 7
