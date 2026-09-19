@@ -19,8 +19,8 @@ SIM_TARGETS = tp1_decoder debounce sensor_veiculo botao_pedestre contador_tempo 
               fsm_semaforo protocolo_paralelo bram_historico media_movel_dsp \
               protocolo_serial top_semaforo
 ASM_STANDALONE = tp1_fluxo_basico tp2_polling_contagem gpio_map tp3_controle_fluxo tp4_numerico tp4_neon_simd
-ASM_COM_LIB    = test_lib main_tp5 monitor_semaforo
-LIB_OBJS = $(BUILD)/lib/gpio_lib.o $(BUILD)/lib/strings_lib.o $(BUILD)/lib/buffer_lib.o
+ASM_COM_LIB    = test_lib main_tp5 monitor_semaforo monitor_semaforo_hw
+LIB_OBJS = $(BUILD)/lib/gpio_lib.o $(BUILD)/lib/strings_lib.o $(BUILD)/lib/buffer_lib.o $(BUILD)/lib/protocolo_serial_gpio.o
 
 .PHONY: sim asm lib run-asm clean $(addprefix sim-,$(SIM_TARGETS))
 
@@ -118,6 +118,8 @@ $(BUILD)/main_tp5: $(BUILD)/main_tp5.o $(BUILD)/lib/libembarcado.a
 	$(LD) -o $@ $(BUILD)/main_tp5.o $(BUILD)/lib/libembarcado.a
 $(BUILD)/monitor_semaforo: $(BUILD)/monitor_semaforo.o $(BUILD)/lib/libembarcado.a
 	$(LD) -o $@ $(BUILD)/monitor_semaforo.o $(BUILD)/lib/libembarcado.a
+$(BUILD)/monitor_semaforo_hw: $(BUILD)/monitor_semaforo_hw.o $(BUILD)/lib/libembarcado.a
+	$(LD) -o $@ $(BUILD)/monitor_semaforo_hw.o $(BUILD)/lib/libembarcado.a
 
 run-asm: asm
 	@for bin in $(ASM_STANDALONE) $(ASM_COM_LIB); do \
