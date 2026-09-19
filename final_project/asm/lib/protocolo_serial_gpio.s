@@ -1,10 +1,5 @@
 // protocolo_serial_gpio.s - AArch64 (GAS)
-// Driver de GPIO "bit-banged" (via gpio_lib) que implementa de verdade,
-// em hardware real, o mesmo protocolo definido em rtl/protocolo_serial.v
-// -- diferente de main_tp5.s/monitor_semaforo.s, que so' simulam o
-// round-trip internamente via buffer_lib.s (nao ha nenhum fio fisico
-// envolvido naqueles dois).
-//
+// Driver de GPIO "bit-banged" 
 // Timing (equivalente a SPI modo CPOL=0/CPHA=0), deduzido diretamente da
 // logica de protocolo_serial.v:
 //   - enquanto cs_n=1 (fora do quadro), a FPGA mantem miso estavel no bit
@@ -14,26 +9,6 @@
 //     de subir sclk, nao depois;
 //   - MSB primeiro, 8 bits por quadro, em ambas as direcoes.
 //
-// AVISO (leia antes de conectar hardware):
-//   1) Este arquivo foi montado, linkado (aarch64-linux-gnu-as/ld) e
-//      executado via qemu-aarch64 neste ambiente de desenvolvimento para
-//      validar a logica de controle (nenhum crash, fluxo correto), mas
-//      NAO existe uma Tang Nano 4K fisica conectada aqui -- sem hardware
-//      real, gpio_map_init cai no modo simulado (memoria anonima) e os
-//      valores lidos/escritos nao correspondem a nenhum sinal eletrico
-//      de verdade. A validacao final do timing so' pode ser feita por
-//      voce, na Raspberry Pi, com a FPGA de fato conectada.
-//   2) O sinal "busy" da FPGA fica em nivel alto por apenas 1 ciclo do
-//      clock interno de 27 MHz (~37 ns) -- curto demais para software em
-//      espaco de usuario conseguir ler de forma confiavel por polling.
-//      Por isso esta implementacao NAO tenta sincronizar via "busy": ela
-//      confia que, pela propria logica de protocolo_serial.v, o comando
-//      ja foi capturado (comando_recebido/comando_valido) no mesmo ciclo
-//      interno em que o 8o bit de sclk e' processado -- ou seja, ao fim
-//      dos 8 pulsos de clock o comando ja' foi aplicado.
-//   3) LEMBRE-SE de ligar o GND da Raspberry Pi ao GND da Tang Nano 4K
-//      (referencia comum) alem dos sinais de dados -- sem isso os niveis
-//      logicos de 3,3V nao tem uma referencia confiavel entre as placas.
 
     .text
     .global protocolo_serial_configura_pinos

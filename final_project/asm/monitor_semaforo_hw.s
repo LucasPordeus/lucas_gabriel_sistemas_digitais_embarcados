@@ -28,10 +28,6 @@
 // clockar e assim receber a telemetria de volta por miso. Roda um numero
 // fixo de polls (ver N_POLLS) e termina sozinho.
 //
-// IMPORTANTE (ver protocolo_serial_gpio.s para o detalhe completo): sem
-// uma Tang Nano fisica conectada, gpio_map_init cai no modo simulado
-// (memoria anonima) e a telemetria lida sera' sempre 0 -- este programa
-// roda e termina normalmente nesse caso, so' nao reflete hardware real.
 
 .macro le_relogio reg_seg, reg_nseg
     sub     sp, sp, #16
