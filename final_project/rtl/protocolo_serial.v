@@ -18,7 +18,7 @@
 //
 // Formato do comando (mosi, MSB primeiro): identico ao protocolo_paralelo
 //   [7:6]=opcode  [5:0]=valor
-// Formato da telemetria (miso, MSB primeiro) -- extensao pos-TP5 para o
+// Formato da telemetria (miso, MSB primeiro) -- para o
 // log de countdown em tempo real da Raspberry Pi:
 //   [7:6]=fase_carro_atual (00=vermelho/pedestre-verde, 01=amarelo,
 //         10=verde -- espelha "estado_carro" da fsm_semaforo)

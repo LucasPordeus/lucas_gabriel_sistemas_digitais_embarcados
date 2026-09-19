@@ -3,12 +3,12 @@
 // Trata os casos de borda finais: reset assíncrono global, estado
 // invalido da FSM (tratado internamente por fsm_semaforo/estado_basico_decoder)
 // e a configuracao de OE do pino MISO (tratada dentro de protocolo_serial).
-// Extensao 1: o tempo de verde dos veiculos e' ajustado dinamicamente pelo
+// O tempo de verde dos veiculos e' ajustado dinamicamente pelo
 // proprio nivel_fluxo medido internamente (BRAM+DSP), sem depender de
 // nenhum comando vindo do ARM -- trafego baixo libera o pedestre mais
 // rapido, trafego alto atrasa a liberacao (ver bloco "tempo de verde
 // dinamico" abaixo).
-// Extensao 2: a telemetria enviada por miso agora carrega a fase da FSM
+// A telemetria enviada por miso agora carrega a fase da FSM
 // e a contagem regressiva real da fase corrente (em vez de nivel_fluxo +
 // ponteiro da BRAM), permitindo que a Raspberry Pi monte um log em tempo
 // real com o countdown de quanto falta pro sinal dos carros/pedestre
@@ -40,7 +40,7 @@ module top_semaforo #(
     output wire miso,
     output wire busy
 );
-    // ---- aquisicao (TP2) ----
+    
     wire sensor_estavel, veiculo_pulso;
     wire botao_estavel, solicitacao_pedestre;
     wire limpa_solicitacao;
@@ -56,7 +56,7 @@ module top_semaforo #(
         .botao_estavel(botao_estavel), .solicitacao_pedestre(solicitacao_pedestre)
     );
 
-    // ---- comunicacao final ARM->FPGA (TP5): comandos de configuracao ----
+    // ---- comunicacao final ARM->FPGA  ----
     wire [7:0] comando_recebido;
     wire       comando_valido;
     reg  [5:0] tempo_min_reg, tempo_amarelo_reg, limiar_baixo_reg, limiar_alto_reg;
@@ -66,7 +66,7 @@ module top_semaforo #(
     localparam OP_LIMIAR_BAIXO  = 2'b10;
     localparam OP_LIMIAR_ALTO   = 2'b11;
 
-    // ---- BRAM/DSP (TP4): historico e nivel de fluxo ----
+    // ---- BRAM/DSP : historico e nivel de fluxo ----
     wire [7:0] contagem_dummy_leitura;
     reg  [7:0] ponteiro_escrita_reg;
     wire [7:0] ponteiro_escrita_w;
@@ -123,7 +123,7 @@ module top_semaforo #(
         .media(media_fluxo), .nivel_fluxo(nivel_fluxo)
     );
 
-    // ---- tempo de verde dinamico por nivel de fluxo (extensao pos-TP5) ----
+    // ---- tempo de verde dinamico por nivel de fluxo  ----
     // tempo_min_reg (configuravel via protocolo serial) passa a representar
     // o tempo de verde de referencia para trafego MEDIO. Para BAIXO trafego
     // o tempo efetivo cai pela metade (pedestre e' liberado mais rapido);
@@ -149,10 +149,10 @@ module top_semaforo #(
         endcase
     end
 
-    // ---- FSM do semaforo (TP3) ----
+    // ---- FSM do semaforo ----
     wire [1:0] estado_carro;
     wire       verde_pedestre;
-    wire [7:0] contagem_fase_atual; // ciclos restantes na fase corrente (extensao pos-TP5)
+    wire [7:0] contagem_fase_atual; // ciclos restantes na fase corrente
 
     fsm_semaforo #(.LARGURA_TEMPO(8)) u_fsm (
         .clk(clk), .rst_n(rst_n),
@@ -165,7 +165,7 @@ module top_semaforo #(
         .contagem_atual(contagem_fase_atual)
     );
 
-    // ---- decodificacao de LEDs (TP1, reaproveitado) ----
+    // ---- decodificacao de LEDs ----
     estado_basico_decoder u_decoder_carro (
         .estado(estado_carro),
         .led_vermelho(led_vermelho), .led_amarelo(led_amarelo), .led_verde(led_verde)
@@ -173,8 +173,8 @@ module top_semaforo #(
     assign led_ped_verde    = verde_pedestre;
     assign led_ped_vermelho = ~verde_pedestre;
 
-    // ---- protocolo serial final (TP5) ----
-    // Telemetria (extensao pos-TP5, log em tempo real da Raspberry Pi):
+    // ---- protocolo serial final ----
+    // Telemetria:
     // em vez de repetir nivel_fluxo/ponteiro da BRAM (que continuam
     // totalmente funcionais e testados internamente -- so' deixam de ser
     // duplicados aqui), o byte enviado por miso agora carrega a fase da
