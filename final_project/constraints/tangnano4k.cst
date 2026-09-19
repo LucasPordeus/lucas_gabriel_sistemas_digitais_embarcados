@@ -1,34 +1,29 @@
 // tangnano4k.cst - Constraints de pino (Gowin EDA) - Tang Nano 4K (GW1NSR-LV4C QFN48P)
-// TP5: o barramento paralelo de 10 fios (TP3/TP4) e' substituido pelo
-// protocolo serial final (5 fios: sclk, cs_n, mosi, miso, busy), conforme
-// planejado desde o TP1 (secao 4.3: "protocolo paralelo (TP2/TP3) ou
-// serial sincrono (TP4/TP5)"). Sensor, botao e LEDs mantidos do TP2/TP3.
-// OBS: numeros de pino baseados no pinout de referencia do kit Sipeed Tang
 
 // Clock e reset
-IO_LOC "clk"        "27";
-IO_LOC "rst_n"      "17";
+IO_LOC "clk"        27;
+IO_LOC "rst_n"      30;
 
 // Entradas digitais (sensor de veiculos e botao de pedestre) -- TP2
-IO_LOC "sensor_raw" "28";
-IO_LOC "botao_raw"  "29";
+IO_LOC "sensor_raw" 28;
+IO_LOC "botao_raw"  29;
 
 // Semaforo de veiculos -- TP2
-IO_LOC "led_vermelho" "16";
-IO_LOC "led_amarelo"  "15";
-IO_LOC "led_verde"    "14";
+IO_LOC "led_vermelho" 31;
+IO_LOC "led_amarelo"  32;
+IO_LOC "led_verde"    33;
 
 // Semaforo de pedestre -- TP3
-IO_LOC "led_ped_verde"    "13";
-IO_LOC "led_ped_vermelho" "12";
+IO_LOC "led_ped_verde"    34;
+IO_LOC "led_ped_vermelho" 35;
 
 // Protocolo serial final ARM <-> FPGA -- TP5 (substitui o barramento
 // paralelo dados[7:0]+strobe+ack do TP3/TP4)
-IO_LOC "sclk" "39";
-IO_LOC "cs_n" "40";
-IO_LOC "mosi" "41";
-IO_LOC "miso" "42";
-IO_LOC "busy" "43";
+IO_LOC "sclk" 39;
+IO_LOC "cs_n" 40;
+IO_LOC "mosi" 41;
+IO_LOC "miso" 42;
+IO_LOC "busy" 43;
 
 IO_PORT "clk"        IO_TYPE=LVCMOS33;
 IO_PORT "rst_n"      IO_TYPE=LVCMOS33 PULL_MODE=UP;
