@@ -12,13 +12,6 @@
 //
 // Pino usado no exemplo: GPIO17 (bit 21..23 de GPFSEL1, bit 17 dos demais).
 //
-// IMPORTANTE (modo simulado): em hardware real (Raspberry Pi OS), abrir
-// "/dev/gpiomem" da acesso direto ao periferico GPIO sem precisar de root.
-// Para permitir validar esta rotina tambem em ambiente de desenvolvimento
-// (sem a placa fisica), o programa cai automaticamente em um "modo
-// simulado" (memoria anonima via mmap) caso /dev/gpiomem nao exista --
-// nesse caso, o comportamento de LDR/STR sobre os registradores e'
-// idêntico, apenas sem efeito em hardware real.
 
     .data
 GPFSEL1_OFF = 0x04

@@ -1,5 +1,5 @@
 // monitor_semaforo.s - AArch64 (GAS)
-// Extensao pos-TP5: log em tempo real (na Raspberry Pi) do countdown de
+// Log em tempo real (na Raspberry Pi) do countdown de
 // quanto tempo falta para o semaforo dos carros e do pedestre fecharem.
 //
 // Cada "tick" deste programa reproduz o que a Raspberry Pi faria de
@@ -22,7 +22,7 @@
 //   Cenario 1 (trafego BAIXO): verde=5s, amarelo=3s, pedestre=15s
 //   Cenario 2 (trafego ALTO):  verde=20s, amarelo=3s, pedestre=15s
 
-// ---- macro parametrizada: le o clock monotonico (igual a main_tp5.s) ----
+// ---- macro parametrizada: le o clock monotonico ----
 .macro le_relogio reg_seg, reg_nseg
     sub     sp, sp, #16
     mov     x0, #1                  // CLOCK_MONOTONIC

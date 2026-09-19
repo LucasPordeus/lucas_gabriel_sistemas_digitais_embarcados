@@ -4,7 +4,6 @@
 // conta veiculos detectados usando registradores, LDR, decisao (CMP/B.cond)
 // e loop, e classifica o nivel de fluxo (baixo/medio/alto) via cadeia de
 // decisoes. O resultado e impresso via syscall write() (sem libc).
-// Compilar/rodar: ver Makefile (executa nativamente na Raspberry Pi).
 
     .data
 amostras:
