@@ -14,7 +14,7 @@
 
 - **Desligue (desconecte da USB) as duas placas antes de mexer em qualquer fio.** Só ligue a alimentação depois que toda a fiação estiver conferida.
 - As duas placas trabalham em **3,3V**. Não ligue nada em 5V nos pinos de sinal (sensor, botão, LEDs, protocolo serial) — o GW1NSR-LV4C da Tang Nano **não é tolerante a 5V** e queima com facilidade.
-- Os números de pino usados abaixo (`27`, `17`, `28`, `29`, `14`, `15`, `16`, `12`, `13`, `39`-`43`) são os mesmos declarados em [`constraints/tangnano4k.cst`](constraints/tangnano4k.cst) — ou seja, é o que o Gowin EDA vai gravar em cada pino físico do chip. Placas Sipeed normalmente imprimem esse mesmo número ao lado de cada furo do header, mas **confirme visualmente no silk-screen da sua placa** (ou no pinout oficial em `wiki.sipeed.com/hardware/en/tang/Tang-Nano-4K/Nano-4K.html`) antes de encostar um jumper — eu não tenho como validar fisicamente isso por aqui.
+- Os números de pino usados abaixo (`45`, `28`, `29`, `12`, `13`, `16`, `18`, `19`, `39`-`43`) são os mesmos declarados em [`constraints/tangnano4k.cst`](constraints/tangnano4k.cst) — ou seja, é o que o Gowin EDA vai gravar em cada pino físico do chip. Placas Sipeed normalmente imprimem esse mesmo número ao lado de cada furo do header, mas **confirme visualmente no silk-screen da sua placa** (ou no pinout oficial em `wiki.sipeed.com/hardware/en/tang/Tang-Nano-4K/Nano-4K.html`) antes de encostar um jumper — eu não tenho como validar fisicamente isso por aqui.
 - **Nunca junte VCC de uma placa com VCC da outra.** As duas placas são alimentadas cada uma pela sua própria USB; a única conexão elétrica direta entre elas deve ser os fios de sinal (`sclk`, `cs_n`, `mosi`, `miso`) e o **GND comum**.
 
 ---
@@ -46,13 +46,13 @@ Direto de `constraints/tangnano4k.cst`:
 
 | Sinal do projeto | Pino (chip Gowin) | Direção | Pull interno configurado |
 |---|---|---|---|
-| `clk` | 27 | entrada | — (oscilador onboard de 27 MHz, ver nota abaixo) |
-| `rst_n` | 17 | entrada | pull-up (ativo em nível baixo) |
+| `clk` | 45 | entrada | — (oscilador onboard de 27 MHz, ver nota abaixo) |
+| `rst_n` | (sem pino fixo) | entrada | pull-up (ativo em nível baixo) — Gowin escolhe o pino livre sozinho no Place & Route, ver nota abaixo |
 | `sensor_raw` | 28 | entrada | pull-down |
 | `botao_raw` | 29 | entrada | pull-down |
 | `led_vermelho` | 16 | saída | drive 8mA |
-| `led_amarelo` | 15 | saída | drive 8mA |
-| `led_verde` | 14 | saída | drive 8mA |
+| `led_amarelo` | 19 | saída | drive 8mA |
+| `led_verde` | 18 | saída | drive 8mA |
 | `led_ped_verde` | 13 | saída | drive 8mA |
 | `led_ped_vermelho` | 12 | saída | drive 8mA |
 | `sclk` | 39 | entrada (vem do ARM) | pull-down |
@@ -61,7 +61,11 @@ Direto de `constraints/tangnano4k.cst`:
 | `miso` | 42 | saída (vai pro ARM) | drive 8mA, alta impedância quando `cs_n=1` |
 | `busy` | 43 | saída (vai pro ARM) | drive 8mA — não usado pelo software (ver `asm/lib/protocolo_serial_gpio.s`) |
 
-**Nota sobre `clk` (pino 27) e `rst_n` (pino 17):** na grande maioria das placas Tang Nano, o pino do oscilador onboard de 27 MHz e o botão de reset onboard (serigrafado como "RESET"/"S1" na placa) já vêm **pré-conectados internamente** aos pinos que o Gowin EDA espera para `clk`/`rst_n` num projeto padrão. Ou seja, **você provavelmente não precisa fiar nada externo para esses dois sinais** — só confirme isso no diagrama oficial da sua placa antes de assumir. Como `rst_n` já tem pull-up interno configurado no `.cst`, mesmo sem nada conectado ele fica em repouso (inativo) sozinho.
+**Por que `led_verde`/`led_amarelo` estão em 18/19 e não em 14/15:** conferi o esquemático oficial da Sipeed e os pinos 14 e 15 do chip são exatamente onde estão soldados os **dois botões onboard da placa** (`S1`/`S2`, redes `KEY1`/`KEY2`, cada um com pull-up de ~100kΩ pro 3,3V). Usar 14/15 pra LED colidiria eletricamente com esses botões — por isso o `.cst` usa 18/19 (`IOB13A`/`IOB13B`) pros LEDs de verde/amarelo do carro, que não aparecem com nenhuma função especial no esquemático. `botao_raw` (o botão externo da protoboard) também evita 14/15 pelo mesmo motivo — está no pino 29.
+
+**Nota sobre `clk` (pino 45):** confirmado pelo exemplo oficial da Sipeed (`github.com/sipeed/TangNano-4K-example`, projeto `key_blink`) — esse é o pino real do oscilador onboard de 27 MHz. O pino 27, usado até uma revisão anterior deste guia, **nunca foi o oscilador de verdade** — era a causa raiz de o projeto nunca avançar sozinho, com ou sem botão.
+
+**Nota sobre `rst_n` (sem pino fixo):** não existe um botão de reset onboard pré-ligado nessa placa — os dois botões físicos (`S1`/`S2`) são de uso geral, ligados nos pinos 14/15 (ver nota acima), sem relação com `rst_n`. O pino 17 (usado antes) cai num banco elétrico travado em 1,8V, incompatível com o padrão 3,3V do resto do projeto — tentar usá-lo dá erro de síntese no Gowin (`CT1136`). Por isso o `.cst` não atribui nenhum pino fixo a `rst_n`: o Gowin escolhe um pino livre e compatível sozinho durante o Place & Route (mesmo padrão do exemplo oficial da Sipeed). Como nada externo precisa controlar esse sinal, o pull-up interno já garante repouso (inativo) sozinho, sem fiação nenhuma. Se você quiser um botão de reset manual, primeiro rode Place & Route, veja no relatório de pinos gerado qual pino o Gowin escolheu pra `rst_n`, e ligue um botão desse pino direto pro GND (sem resistor, o pull-up já está configurado).
 
 ---
 
@@ -127,8 +131,8 @@ pino da FPGA ──[220 Ω]──►|── GND
 | LED | Pino FPGA | Cor |
 |---|---|---|
 | Carro — vermelho | 16 | vermelho |
-| Carro — amarelo | 15 | amarelo |
-| Carro — verde | 14 | verde |
+| Carro — amarelo | 19 | amarelo |
+| Carro — verde | 18 | verde |
 | Pedestre — verde | 13 | verde |
 | Pedestre — vermelho | 12 | vermelho |
 
@@ -139,8 +143,8 @@ Confira a polaridade do LED antes de encaixar: o cátodo (perna mais curta / lad
 Com o sensor, o botão e os 5 LEDs montados, grave o bitstream (seção 10 do `CONTEXTO_PROJETO_SEMAFORO_INTELIGENTE.md`) e ligue **só** a Tang Nano na USB-C. Teste:
 
 - Ao ligar: LED verde de carro aceso, vermelho de pedestre aceso, os outros apagados.
-- Aperte o botão de pedestre: depois do tempo mínimo de verde (10 ciclos por padrão — rápido demais pra perceber sem um osciloscópio/analisador lógico, já que não há prescaler pra segundos reais ainda, ver seção 6 do contexto do projeto), o semáforo deve ciclar carro-amarelo → pedestre-verde → volta pro carro-verde sozinho.
-- Passe a mão na frente do sensor IR repetidamente (simulando vários "veículos"): isso deve, na próxima vez que abrir pro carro, mudar a duração da fase verde (mais rápido se não passou nada, mais devagar se passou bastante — de novo, rápido demais pra perceber a olho nu sem instrumentação, mas o LED muda de estado sozinho).
+- Aperte o botão de pedestre: depois do tempo mínimo de verde (10 segundos reais por padrão — graças ao prescaler de `rtl/prescaler.v`, que converte os ciclos internos de clock em ticks de 1 segundo; antes dessa extensão isso durava ~370 ns, rápido demais pra perceber a olho nu), o semáforo deve ciclar carro-verde (10s) → carro-amarelo (3s) → pedestre-verde (15s) → volta pro carro-verde sozinho, visivelmente.
+- Passe a mão na frente do sensor IR repetidamente (simulando vários "veículos") **antes** de apertar o botão: isso deve, na próxima vez que abrir pro carro, mudar a duração real da fase verde (5s se não passou nada recentemente, 20s se passou bastante — lembrando que essa decisão só é tomada no instante em que a fase de verde começa, não durante ela, ver `CONTEXTO_PROJETO_SEMAFORO_INTELIGENTE.md` seção 6).
 
 Se isso já funciona, a FPGA está 100% operacional **independente da Raspberry Pi** — exatamente o comportamento de segurança que o projeto garante.
 
@@ -200,7 +204,7 @@ Se você rodar sem a Tang Nano conectada (ou sem `sudo`), o programa não trava:
 
 - [ ] Sensor IR: `VCC`→3V3, `GND`→GND, `OUT`→pino 28
 - [ ] Botão: 3V3 → botão → pino 29 → resistor 10 kΩ → GND
-- [ ] 5 LEDs, cada um com resistor de 220 Ω, nos pinos 12/13/14/15/16
+- [ ] 5 LEDs, cada um com resistor de 220 Ω, nos pinos 12/13/16/18/19
 - [ ] FPGA testada sozinha (checkpoint da seção 4.4) antes de ligar a Raspberry Pi
 - [ ] GND comum entre as duas placas conectado
 - [ ] `sclk`/`cs_n`/`mosi`/`miso` ligados conforme a tabela da seção 5 (sem inverter nenhum)
@@ -216,6 +220,6 @@ Se você rodar sem a Tang Nano conectada (ou sem `sudo`), o programa não trava:
 |---|---|
 | Telemetria sempre `0` mesmo com a Tang Nano ligada | Rodou sem `sudo` (caiu no modo simulado), ou `sclk`/`mosi`/`miso` trocados entre si, ou GND não está comum entre as placas |
 | LEDs não acendem nem depois de gravar o bitstream | Confira a orientação dos LEDs (cátodo pro GND) e se os pinos batem com a tabela da seção 2 |
-| Botão não muda nada | Confira o resistor de pull-down (sem ele o pino fica flutuando e o debounce nunca vê uma borda limpa) |
+| Botão não muda nada | Confira o resistor de pull-down (sem ele o pino fica flutuando e o debounce nunca vê uma borda limpa), e se o `.cst` gravado realmente tem `botao_raw` no pino 29 |
 | FPGA não reconhecida pelo Gowin EDA / não grava | Problema de driver USB ou cabo USB-C só de alimentação (sem dados) — troque o cabo |
 | Programa Assembly dá "Permission denied" ao rodar | Faltou `sudo` (necessário pra abrir `/dev/gpiomem`) |

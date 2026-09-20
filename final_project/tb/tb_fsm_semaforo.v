@@ -8,7 +8,7 @@ module tb_fsm_semaforo;
     integer erros;
 
     fsm_semaforo #(.LARGURA_TEMPO(W)) dut (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .tick(1'b1),
         .solicitacao_pedestre(solicitacao),
         .tempo_min_verde(t_verde), .tempo_amarelo(t_amarelo), .tempo_pedestre(t_pedestre),
         .estado_carro(estado_carro), .verde_pedestre(verde_pedestre),

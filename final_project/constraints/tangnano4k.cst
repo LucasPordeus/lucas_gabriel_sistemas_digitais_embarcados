@@ -1,24 +1,16 @@
-// tangnano4k.cst - Constraints de pino (Gowin EDA) - Tang Nano 4K (GW1NSR-LV4C QFN48P)
+IO_LOC "clk"        45;
+IO_LOC "rst_n"      15;
 
-// Clock e reset
-IO_LOC "clk"        27;
-IO_LOC "rst_n"      30;
-
-// Entradas digitais (sensor de veiculos e botao de pedestre) -- TP2
 IO_LOC "sensor_raw" 28;
-IO_LOC "botao_raw"  29;
+IO_LOC "botao_raw"  14;
 
-// Semaforo de veiculos -- TP2
 IO_LOC "led_vermelho" 31;
 IO_LOC "led_amarelo"  32;
 IO_LOC "led_verde"    33;
 
-// Semaforo de pedestre -- TP3
 IO_LOC "led_ped_verde"    34;
 IO_LOC "led_ped_vermelho" 35;
 
-// Protocolo serial final ARM <-> FPGA -- TP5 (substitui o barramento
-// paralelo dados[7:0]+strobe+ack do TP3/TP4)
 IO_LOC "sclk" 39;
 IO_LOC "cs_n" 40;
 IO_LOC "mosi" 41;
@@ -26,9 +18,9 @@ IO_LOC "miso" 42;
 IO_LOC "busy" 43;
 
 IO_PORT "clk"        IO_TYPE=LVCMOS33;
-IO_PORT "rst_n"      IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_PORT "sensor_raw" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
-IO_PORT "botao_raw"  IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_PORT "rst_n"      PULL_MODE=UP;
+IO_PORT "sensor_raw" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "botao_raw"  PULL_MODE=UP;
 IO_PORT "led_vermelho" IO_TYPE=LVCMOS33 DRIVE=8;
 IO_PORT "led_amarelo"  IO_TYPE=LVCMOS33 DRIVE=8;
 IO_PORT "led_verde"    IO_TYPE=LVCMOS33 DRIVE=8;

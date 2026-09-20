@@ -22,7 +22,12 @@ module tb_top_semaforo;
 
     // JANELA_AMOSTRAGEM reduzida para a simulacao rodar rapido (o valor de
     // producao, 200, so' importa para o "tamanho" relativo da janela real).
-    top_semaforo #(.JANELA_AMOSTRAGEM(200)) dut (
+    // DIVISOR_TICK=1 mantem o tick do prescaler disparando a cada ciclo de
+    // clock (equivalente a nao ter prescaler nenhum), preservando a mesma
+    // contagem em "ciclos" que todos os casos abaixo ja validavam antes
+    // desta extensao -- o valor real de hardware (27_000_000, 1 tick/s)
+    // so' e' usado na sintese fisica (ver rtl/prescaler.v).
+    top_semaforo #(.JANELA_AMOSTRAGEM(200), .DIVISOR_TICK(1)) dut (
         .clk(clk), .rst_n(rst_n),
         .sensor_raw(sensor_raw), .botao_raw(botao_raw),
         .led_vermelho(led_vermelho), .led_amarelo(led_amarelo), .led_verde(led_verde),
@@ -44,7 +49,11 @@ module tb_top_semaforo;
 
     task reseta_dut;
         begin
-            rst_n = 0; sensor_raw = 0; botao_raw = 0;
+            // botao_raw agora e' ativo em nivel BAIXO (botao onboard S1,
+            // invertido dentro de top_semaforo.v) -- repouso/nao-pressionado = 1
+            // sensor_raw agora e' ativo em nivel BAIXO (sensor real,
+            // invertido dentro de top_semaforo.v) -- repouso/sem obstaculo = 1
+            rst_n = 0; sensor_raw = 1; botao_raw = 1;
             sclk = 0; cs_n = 1; mosi = 0;
             espera_clk(2);
             rst_n = 1;
@@ -126,8 +135,8 @@ module tb_top_semaforo;
         integer m;
         begin
             for (m = 0; m < n; m = m + 1) begin
-                sensor_raw = 1; espera_clk(10);
-                sensor_raw = 0; espera_clk(10);
+                sensor_raw = 0; espera_clk(10); // "passa" (ativo em baixo)
+                sensor_raw = 1; espera_clk(10); // repouso
             end
         end
     endtask
@@ -198,9 +207,9 @@ module tb_top_semaforo;
         // ---- Caso 4: trafego BAIXO (nenhum veiculo) -> mede o tempo real
         // ate o pedestre ser liberado (amarelo comeca) ----
         reseta_dut;
-        botao_raw = 1;
+        botao_raw = 0; // pressionado (ativo em baixo)
         aguarda_amarelo(ciclos_baixo);
-        botao_raw = 0;
+        botao_raw = 1; // solto
         $display("[INFO]  trafego BAIXO: %0d ciclos ate o inicio do amarelo (tempo_min_efetivo=5)", ciclos_baixo);
         // deixa o ciclo terminar (amarelo + pedestre) antes do proximo caso
         espera_clk(2 + 15 + 5);
@@ -237,9 +246,9 @@ module tb_top_semaforo;
         // 1o ciclo (descartavel): ainda usa o valor carregado no reset
         // (baixo=5), so' para passar por amarelo+pedestre e voltar a
         // CARRO_VERDE -- reentrada em que o novo valor (alto=20) sera' carregado.
-        botao_raw = 1;
+        botao_raw = 0; // pressionado (ativo em baixo)
         espera_clk(15); // debounce + garante que ja esta em amarelo
-        botao_raw = 0;
+        botao_raw = 1; // solto
         espera_clk(3 + 2 + 15 + 3); // resto do amarelo (padrao=3) + pedestre (15) + margem
         if (dut.estado_carro !== 2'b10) begin
             erros = erros + 1;
@@ -248,9 +257,9 @@ module tb_top_semaforo;
 
         // 2a pressao (a que de fato mede o efeito do trafego alto): o
         // contador desta fase ja foi recarregado com tempo_min_efetivo=20.
-        botao_raw = 1;
+        botao_raw = 0; // pressionado (ativo em baixo)
         aguarda_amarelo(ciclos_alto);
-        botao_raw = 0;
+        botao_raw = 1; // solto
         $display("[INFO]  trafego ALTO: %0d ciclos ate o inicio do amarelo (tempo_min_efetivo=20)", ciclos_alto);
 
         if (ciclos_alto <= ciclos_baixo) begin

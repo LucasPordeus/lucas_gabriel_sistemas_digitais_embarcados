@@ -12,6 +12,10 @@ module fsm_semaforo #(
 ) (
     input  wire                      clk,
     input  wire                      rst_n,
+    input  wire                      tick,             // habilita o decremento do contador
+                                                         // (1 por ciclo de "clk" se sempre 1;
+                                                         // ver rtl/prescaler.v para gerar um
+                                                         // tick mais lento em hardware real)
     input  wire                      solicitacao_pedestre,
     input  wire [LARGURA_TEMPO-1:0]  tempo_min_verde,
     input  wire [LARGURA_TEMPO-1:0]  tempo_amarelo,
@@ -34,7 +38,7 @@ module fsm_semaforo #(
 
     contador_tempo #(.LARGURA(LARGURA_TEMPO)) u_contador (
         .clk(clk), .rst_n(rst_n),
-        .carrega(carrega_cont), .habilita(1'b1),
+        .carrega(carrega_cont), .habilita(tick),
         .valor_inicial(valor_inicial_cont),
         .valor_atual(valor_atual_cont), .zerou(tempo_esgotado)
     );

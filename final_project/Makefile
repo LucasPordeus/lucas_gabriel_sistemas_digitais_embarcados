@@ -81,7 +81,7 @@ sim-top_semaforo: $(BUILD)/top_semaforo.vvp
 $(BUILD)/top_semaforo.vvp: rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v \
                            rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v \
                            rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v \
-                           rtl/top_semaforo.v tb/tb_top_semaforo.v
+                           rtl/prescaler.v rtl/top_semaforo.v tb/tb_top_semaforo.v
 	mkdir -p $(BUILD); iverilog -g2012 -o $@ $^
 
 lib: $(BUILD)/lib/libembarcado.a
