@@ -215,6 +215,24 @@ module top_semaforo #(
         .contagem_atual(contagem_fase_atual)
     );
 
+    // ---- tempo ate o pedestre poder atravessar ----
+    // Diferente de "contagem_fase_atual" (tempo restante SO' na fase
+    // corrente, que reseta a cada troca de fase), isso calcula quanto
+    // falta de verdade ate o sinal do pedestre abrir:
+    //   CARRO_VERDE:    falta o resto do verde + o amarelo INTEIRO (essa
+    //                   fase ainda nem comecou a contar)
+    //   CARRO_AMARELO:  falta so' o resto do amarelo (pedestre abre logo
+    //                   depois que o amarelo zerar)
+    //   PEDESTRE_VERDE: 0 (ja esta aberto)
+    reg [7:0] tempo_ate_pedestre;
+    always @(*) begin
+        case (estado_carro)
+            2'b10:   tempo_ate_pedestre = contagem_fase_atual + {2'b00, tempo_amarelo_reg}; // CARRO_VERDE
+            2'b01:   tempo_ate_pedestre = contagem_fase_atual;                              // CARRO_AMARELO
+            default: tempo_ate_pedestre = 8'd0;                                             // PEDESTRE_VERDE
+        endcase
+    end
+
     // ---- decodificacao de LEDs ----
     estado_basico_decoder u_decoder_carro (
         .estado(estado_carro),
@@ -225,23 +243,22 @@ module top_semaforo #(
 
     // ---- protocolo serial final ----
     // Telemetria (formato atualizado, pra incluir o nivel de trafego):
-    //   [7:6] = fase da FSM (estado_carro)
+    //   [7:6] = fase da FSM (estado_carro) -- 00=pedestre verde/carro
+    //           vermelho, 01=carro amarelo, 10=carro verde
     //   [5:4] = nivel_fluxo (00=baixo 01=medio 10=alto)
-    //   [3:0] = contagem regressiva, TRUNCADA para 4 bits (0-15)
-    // Antes, o campo de contagem usava os 6 bits inteiros (0-63) --
-    // reduzir pra 4 bits abre espaco pro nivel_fluxo dentro do mesmo byte,
-    // sem mudar protocolo_serial.v nem o numero de pulsos de sclk por
-    // quadro. Contrapartida aceita: com tempo_min_efetivo=20 (trafego
-    // alto), o valor exibido na contagem trunca (20 vira 4) -- e' so' uma
-    // limitacao de EXIBICAO no monitor da Raspberry Pi, a FSM interna
-    // continua contando os 20 ciclos certos, sem nenhum truncamento --
-    // e' so' o byte de telemetria que satura essa faixa. Baixo (5..15) e
-    // medio (10) sempre cabem exatos nos 4 bits.
+    //   [3:0] = tempo_ate_pedestre, TRUNCADO para 4 bits (0-15) -- quanto
+    //           falta de verdade pro pedestre poder atravessar (nao so' o
+    //           tempo restante na fase atual, ver bloco acima)
+    // Contrapartida aceita: em trafego alto (verde=20 + amarelo), o valor
+    // pode passar de 15 e truncar -- e' so' uma limitacao de EXIBICAO no
+    // monitor da Raspberry Pi, a FSM interna da FPGA conta certo por
+    // dentro, sem nenhum truncamento -- e' so' o byte de telemetria que
+    // satura essa faixa.
     protocolo_serial u_protocolo (
         .clk(clk), .rst_n(rst_n),
         .sclk(sclk), .cs_n(cs_n), .mosi(mosi),
         .fase_carro_atual(estado_carro),
-        .contagem_regressiva({nivel_fluxo, contagem_fase_atual[3:0]}),
+        .contagem_regressiva({nivel_fluxo, tempo_ate_pedestre[3:0]}),
         .miso(miso), .busy(busy),
         .comando_recebido(comando_recebido), .comando_valido(comando_valido)
     );

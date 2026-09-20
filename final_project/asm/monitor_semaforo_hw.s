@@ -26,12 +26,18 @@
 // clockar e assim receber a telemetria de volta por miso.
 //
 // Formato do byte de telemetria (ver rtl/top_semaforo.v):
-//   [7:6] = fase do semaforo de carros (00=vermelho/pedestre, 01=amarelo, 10=verde)
+//   [7:6] = fase do semaforo de carros (00=vermelho/pedestre-verde,
+//           01=amarelo, 10=verde) -- o status do PEDESTRE e' o oposto:
+//           fase=00 -> pedestre VERDE; fase=01 ou 10 -> pedestre VERMELHO
 //   [5:4] = nivel de trafego (00=baixo 01=medio 10=alto)
-//   [3:0] = contagem regressiva, TRUNCADA para 4 bits (0-15) -- com
-//           trafego alto (tempo_min_efetivo=20 ciclos/segundos) o valor
-//           exibido aqui pode truncar; e' so' uma limitacao de EXIBICAO
-//           neste monitor, a FSM interna da FPGA conta os 20 certinhos.
+//   [3:0] = tempo_ate_pedestre, TRUNCADO para 4 bits (0-15) -- quanto
+//           falta de verdade pro pedestre poder atravessar (nao so' o
+//           tempo restante na fase atual): soma o resto do verde + o
+//           amarelo inteiro se ainda estiver no verde; so' o resto do
+//           amarelo se ja estiver nele; e 0 se o pedestre ja esta verde.
+//           Com trafego alto (verde=20 + amarelo) o valor pode passar de
+//           15 e truncar; e' so' uma limitacao de EXIBICAO neste monitor,
+//           a FSM interna da FPGA conta certo por dentro.
 //
 // Roda PARA SEMPRE (Ctrl+C pra encerrar) -- nao tem mais limite de polls.
 
@@ -65,7 +71,7 @@ len_pinagem = . - msg_pinagem
 msg_prefixo_t: .ascii "[t="
 len_prefixo_t = . - msg_prefixo_t
 
-msg_carro_vermelho: .ascii "s] CARROS=VERMELHO(ou pedestre atravessando) "
+msg_carro_vermelho: .ascii "s] CARROS=VERMELHO "
 len_carro_vermelho = . - msg_carro_vermelho
 
 msg_carro_amarelo: .ascii "s] CARROS=AMARELO "
@@ -73,6 +79,12 @@ len_carro_amarelo = . - msg_carro_amarelo
 
 msg_carro_verde: .ascii "s] CARROS=VERDE "
 len_carro_verde = . - msg_carro_verde
+
+msg_pedestre_vermelho: .ascii "PEDESTRE=VERMELHO "
+len_pedestre_vermelho = . - msg_pedestre_vermelho
+
+msg_pedestre_verde: .ascii "PEDESTRE=VERDE "
+len_pedestre_verde = . - msg_pedestre_verde
 
 msg_trafego_baixo: .ascii "trafego=BAIXO "
 len_trafego_baixo = . - msg_trafego_baixo
@@ -83,7 +95,7 @@ len_trafego_medio = . - msg_trafego_medio
 msg_trafego_alto: .ascii "trafego=ALTO "
 len_trafego_alto = . - msg_trafego_alto
 
-msg_contagem_prefixo: .ascii "contagem="
+msg_contagem_prefixo: .ascii "abre_pedestre_em="
 len_contagem_prefixo = . - msg_contagem_prefixo
 
 msg_sufixo: .ascii "\n"
@@ -135,19 +147,30 @@ _start:
     b.eq    .Llabel_verde
     cmp     x12, #1
     b.eq    .Llabel_amarelo
+    // fase=0: carro vermelho, pedestre VERDE (unico caso em que o
+    // pedestre pode atravessar)
     adrp    x23, msg_carro_vermelho
     add     x23, x23, :lo12:msg_carro_vermelho
     mov     x24, #len_carro_vermelho
+    adrp    x27, msg_pedestre_verde
+    add     x27, x27, :lo12:msg_pedestre_verde
+    mov     x28, #len_pedestre_verde
     b       .Ltrafego
 .Llabel_verde:
     adrp    x23, msg_carro_verde
     add     x23, x23, :lo12:msg_carro_verde
     mov     x24, #len_carro_verde
+    adrp    x27, msg_pedestre_vermelho
+    add     x27, x27, :lo12:msg_pedestre_vermelho
+    mov     x28, #len_pedestre_vermelho
     b       .Ltrafego
 .Llabel_amarelo:
     adrp    x23, msg_carro_amarelo
     add     x23, x23, :lo12:msg_carro_amarelo
     mov     x24, #len_carro_amarelo
+    adrp    x27, msg_pedestre_vermelho
+    add     x27, x27, :lo12:msg_pedestre_vermelho
+    mov     x28, #len_pedestre_vermelho
 
 .Ltrafego:
     cmp     x13, #2
@@ -189,6 +212,11 @@ _start:
 
     mov     x1, x23                  // "s] CARROS=<fase> "
     mov     x2, x24
+    mov     x0, #1
+    bl      escreve_fd
+
+    mov     x1, x27                  // "PEDESTRE=<vermelho/verde> "
+    mov     x2, x28
     mov     x0, #1
     bl      escreve_fd
 

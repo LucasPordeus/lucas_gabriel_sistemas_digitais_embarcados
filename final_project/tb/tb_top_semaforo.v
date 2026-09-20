@@ -115,8 +115,15 @@ module tb_top_semaforo;
             // feita no testbench um instante depois ja' ve' o valor *pos*
             // borda (ja decrementado) -- por isso a comparacao abaixo
             // aceita esperado OU esperado+1 (ver comentario na comparacao).
-            esperado_fase     = dut.estado_carro;
-            esperado_contagem = dut.u_fsm.contagem_atual;
+            esperado_fase = dut.estado_carro;
+            // mesma formula de "tempo_ate_pedestre" calculada em
+            // top_semaforo.v -- a telemetria agora manda esse valor, nao
+            // mais o contagem_atual bruto da fase corrente.
+            case (dut.estado_carro)
+                2'b10:   esperado_contagem = dut.u_fsm.contagem_atual + {2'b00, dut.tempo_amarelo_reg};
+                2'b01:   esperado_contagem = dut.u_fsm.contagem_atual;
+                default: esperado_contagem = 8'd0;
+            endcase
             espera_clk(2);
             byte_lido[7]     = miso;
             for (k = 6; k >= 0; k = k - 1) begin
