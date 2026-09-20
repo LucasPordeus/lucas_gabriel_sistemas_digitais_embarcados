@@ -224,20 +224,24 @@ module top_semaforo #(
     assign led_ped_vermelho = ~verde_pedestre;
 
     // ---- protocolo serial final ----
-    // Telemetria:
-    // em vez de repetir nivel_fluxo/ponteiro da BRAM (que continuam
-    // totalmente funcionais e testados internamente -- so' deixam de ser
-    // duplicados aqui), o byte enviado por miso agora carrega a fase da
-    // FSM + a contagem regressiva de fato, para o ARM montar um countdown
-    // real de "quanto falta pro sinal fechar" em vez de so' um indicador
-    // de fluxo. contagem_fase_atual e' sempre <= 63 aqui porque
-    // tempo_min_reg/tempo_amarelo_reg sao registradores de 6 bits e
-    // tempo_min_efetivo tem teto de 63 -- o truncamento pros 6 bits do
-    // campo de telemetria nunca perde informacao.
+    // Telemetria (formato atualizado, pra incluir o nivel de trafego):
+    //   [7:6] = fase da FSM (estado_carro)
+    //   [5:4] = nivel_fluxo (00=baixo 01=medio 10=alto)
+    //   [3:0] = contagem regressiva, TRUNCADA para 4 bits (0-15)
+    // Antes, o campo de contagem usava os 6 bits inteiros (0-63) --
+    // reduzir pra 4 bits abre espaco pro nivel_fluxo dentro do mesmo byte,
+    // sem mudar protocolo_serial.v nem o numero de pulsos de sclk por
+    // quadro. Contrapartida aceita: com tempo_min_efetivo=20 (trafego
+    // alto), o valor exibido na contagem trunca (20 vira 4) -- e' so' uma
+    // limitacao de EXIBICAO no monitor da Raspberry Pi, a FSM interna
+    // continua contando os 20 ciclos certos, sem nenhum truncamento --
+    // e' so' o byte de telemetria que satura essa faixa. Baixo (5..15) e
+    // medio (10) sempre cabem exatos nos 4 bits.
     protocolo_serial u_protocolo (
         .clk(clk), .rst_n(rst_n),
         .sclk(sclk), .cs_n(cs_n), .mosi(mosi),
-        .fase_carro_atual(estado_carro), .contagem_regressiva(contagem_fase_atual[5:0]),
+        .fase_carro_atual(estado_carro),
+        .contagem_regressiva({nivel_fluxo, contagem_fase_atual[3:0]}),
         .miso(miso), .busy(busy),
         .comando_recebido(comando_recebido), .comando_valido(comando_valido)
     );

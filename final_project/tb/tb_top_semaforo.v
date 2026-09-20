@@ -288,13 +288,21 @@ module tb_top_semaforo;
         // um instante depois (ja' contabilizando aquela borda) -- e' o
         // mesmo tipo de defasagem de 1 ciclo entre leitura e escrita
         // registrada que ja apareceu antes neste projeto (carrega_cont).
-        if (telemetria_lida[5:0] !== contagem_esperada[5:0] &&
-            telemetria_lida[5:0] !== contagem_esperada[5:0] + 8'd1) begin
+        // Compara so' os 4 bits baixos: a contagem agora e' truncada pra
+        // 4 bits no byte de telemetria (ver comentario em top_semaforo.v),
+        // pra abrir espaco pro nivel_fluxo nos bits [5:4].
+        if (telemetria_lida[3:0] !== contagem_esperada[3:0] &&
+            telemetria_lida[3:0] !== contagem_esperada[3:0] + 4'd1) begin
             erros = erros + 1;
             $display("[FALHA] telemetria contagem=%0d, esperado %0d (ou %0d, defasagem de 1 ciclo)",
-                      telemetria_lida[5:0], contagem_esperada[5:0], contagem_esperada[5:0] + 8'd1);
+                      telemetria_lida[3:0], contagem_esperada[3:0], contagem_esperada[3:0] + 4'd1);
         end else $display("[OK]    telemetria de contagem regressiva (%0d) bate com a FSM real (referencia=%0d) -- e' o valor que alimentaria o countdown da Raspberry Pi",
-                      telemetria_lida[5:0], contagem_esperada[5:0]);
+                      telemetria_lida[3:0], contagem_esperada[3:0]);
+
+        if (telemetria_lida[5:4] !== dut.nivel_fluxo) begin
+            erros = erros + 1;
+            $display("[FALHA] telemetria nivel_fluxo=%b, esperado %b", telemetria_lida[5:4], dut.nivel_fluxo);
+        end else $display("[OK]    telemetria de nivel_fluxo (%b) bate com o real", telemetria_lida[5:4]);
 
         if (erros == 0)
             $display("RESULTADO: TODOS OS CASOS PASSARAM (12/12)");

@@ -13,21 +13,27 @@
 //   (nao usamos "busy" aqui -- ver aviso em protocolo_serial_gpio.s sobre
 //   por que o pulso de 1 ciclo de "busy" nao e' confiavel de ler via
 //   polling em software)
-// No lado da Tang Nano 4K, os pinos ja estao fixados em
-// constraints/tangnano4k.cst: sclk=39 cs_n=40 mosi=41 miso=42 busy=43
-// (numeros do chip Gowin -- confira o pinout oficial da Sipeed para saber
-// a qual furo fisico da placa cada numero corresponde antes de ligar
-// qualquer fio). Ambas as placas trabalham em 3,3V, entao a ligacao e'
-// direta, sem conversor de nivel -- MAS LEMBRE-SE de ligar tambem o GND
-// da Raspberry Pi ao GND da Tang Nano 4K (referencia comum obrigatoria).
+// No lado da Tang Nano 4K, os pinos do protocolo serial estao fixados em
+// constraints/tangnano4k.cst: sclk=39 cs_n=40 mosi=41 miso=42 busy=43.
+// Ambas as placas trabalham em 3,3V, entao a ligacao e' direta, sem
+// conversor de nivel -- MAS LEMBRE-SE de ligar tambem o GND da Raspberry
+// Pi ao GND da Tang Nano 4K (referencia comum obrigatoria).
 //
 // A cada poll (1 por segundo, via nanosleep -- tempo real, nao simulado),
 // este programa envia o comando "OP_TEMPO_MIN=10" (0x0A): reafirma o
 // tempo minimo de verde padrao, ou seja, e' inocuo/idempotente -- nao
 // muda nada no estado da FPGA, serve so' para ter um byte valido pra
-// clockar e assim receber a telemetria de volta por miso. Roda um numero
-// fixo de polls (ver N_POLLS) e termina sozinho.
+// clockar e assim receber a telemetria de volta por miso.
 //
+// Formato do byte de telemetria (ver rtl/top_semaforo.v):
+//   [7:6] = fase do semaforo de carros (00=vermelho/pedestre, 01=amarelo, 10=verde)
+//   [5:4] = nivel de trafego (00=baixo 01=medio 10=alto)
+//   [3:0] = contagem regressiva, TRUNCADA para 4 bits (0-15) -- com
+//           trafego alto (tempo_min_efetivo=20 ciclos/segundos) o valor
+//           exibido aqui pode truncar; e' so' uma limitacao de EXIBICAO
+//           neste monitor, a FSM interna da FPGA conta os 20 certinhos.
+//
+// Roda PARA SEMPRE (Ctrl+C pra encerrar) -- nao tem mais limite de polls.
 
 .macro le_relogio reg_seg, reg_nseg
     sub     sp, sp, #16
@@ -49,31 +55,39 @@ PINO_CS_N    = 6
 PINO_MOSI    = 13
 PINO_MISO    = 19
 CMD_KEEPALIVE = 0x0A      // OP_TEMPO_MIN(00) | valor=10 (reafirma o padrao, inocuo)
-N_POLLS      = 20
 
 msg_titulo: .ascii "=== Monitor REAL do semaforo (GPIO bit-banged, Raspberry Pi <-> Tang Nano 4K) ===\n"
 len_titulo = . - msg_titulo
 
-msg_pinagem: .ascii "Pinos (BCM): SCLK=GPIO5 CS_N=GPIO6 MOSI=GPIO13 MISO=GPIO19 -- confira a ligacao antes de continuar!\n"
+msg_pinagem: .ascii "Pinos (BCM): SCLK=GPIO5 CS_N=GPIO6 MOSI=GPIO13 MISO=GPIO19 -- confira a ligacao antes de continuar! (Ctrl+C para encerrar)\n"
 len_pinagem = . - msg_pinagem
 
 msg_prefixo_t: .ascii "[t="
 len_prefixo_t = . - msg_prefixo_t
 
-msg_carro_vermelho: .ascii "s] telemetria real: CARROS=VERMELHO(ou pedestre atravessando) contagem="
+msg_carro_vermelho: .ascii "s] CARROS=VERMELHO(ou pedestre atravessando) "
 len_carro_vermelho = . - msg_carro_vermelho
 
-msg_carro_amarelo: .ascii "s] telemetria real: CARROS=AMARELO contagem="
+msg_carro_amarelo: .ascii "s] CARROS=AMARELO "
 len_carro_amarelo = . - msg_carro_amarelo
 
-msg_carro_verde: .ascii "s] telemetria real: CARROS=VERDE contagem="
+msg_carro_verde: .ascii "s] CARROS=VERDE "
 len_carro_verde = . - msg_carro_verde
+
+msg_trafego_baixo: .ascii "trafego=BAIXO "
+len_trafego_baixo = . - msg_trafego_baixo
+
+msg_trafego_medio: .ascii "trafego=MEDIO "
+len_trafego_medio = . - msg_trafego_medio
+
+msg_trafego_alto: .ascii "trafego=ALTO "
+len_trafego_alto = . - msg_trafego_alto
+
+msg_contagem_prefixo: .ascii "contagem="
+len_contagem_prefixo = . - msg_contagem_prefixo
 
 msg_sufixo: .ascii "\n"
 len_sufixo = . - msg_sufixo
-
-msg_fim: .ascii "=== fim do monitor real -- programa encerrado normalmente ===\n"
-len_fim = . - msg_fim
 
 numbuf: .space 20
 
@@ -102,11 +116,7 @@ _start:
     mov     w4, #PINO_MISO
     bl      protocolo_serial_configura_pinos
 
-    mov     x21, #N_POLLS            // x21 = polls restantes
-
 .Lpoll_loop:
-    cbz     x21, .Lpoll_fim
-
     mov     x0, x19
     mov     w1, #PINO_SCLK
     mov     w2, #PINO_CS_N
@@ -117,7 +127,9 @@ _start:
 
     lsr     x12, x0, #6
     and     x12, x12, #3             // fase lida (temporario)
-    and     x22, x0, #63             // x22 = contagem lida (seguro entre chamadas)
+    lsr     x13, x0, #4
+    and     x13, x13, #3             // nivel_fluxo lido (temporario)
+    and     x22, x0, #15             // x22 = contagem lida (4 bits, segura entre chamadas)
 
     cmp     x12, #2
     b.eq    .Llabel_verde
@@ -126,16 +138,35 @@ _start:
     adrp    x23, msg_carro_vermelho
     add     x23, x23, :lo12:msg_carro_vermelho
     mov     x24, #len_carro_vermelho
-    b       .Limprime
+    b       .Ltrafego
 .Llabel_verde:
     adrp    x23, msg_carro_verde
     add     x23, x23, :lo12:msg_carro_verde
     mov     x24, #len_carro_verde
-    b       .Limprime
+    b       .Ltrafego
 .Llabel_amarelo:
     adrp    x23, msg_carro_amarelo
     add     x23, x23, :lo12:msg_carro_amarelo
     mov     x24, #len_carro_amarelo
+
+.Ltrafego:
+    cmp     x13, #2
+    b.eq    .Ltrafego_alto
+    cmp     x13, #1
+    b.eq    .Ltrafego_medio
+    adrp    x25, msg_trafego_baixo
+    add     x25, x25, :lo12:msg_trafego_baixo
+    mov     x26, #len_trafego_baixo
+    b       .Limprime
+.Ltrafego_alto:
+    adrp    x25, msg_trafego_alto
+    add     x25, x25, :lo12:msg_trafego_alto
+    mov     x26, #len_trafego_alto
+    b       .Limprime
+.Ltrafego_medio:
+    adrp    x25, msg_trafego_medio
+    add     x25, x25, :lo12:msg_trafego_medio
+    mov     x26, #len_trafego_medio
 
 .Limprime:
     adrp    x1, msg_prefixo_t
@@ -156,9 +187,20 @@ _start:
     mov     x0, #1
     bl      escreve_fd
 
-    mov     x1, x23
+    mov     x1, x23                  // "s] CARROS=<fase> "
     mov     x2, x24
     mov     x0, #1
+    bl      escreve_fd
+
+    mov     x1, x25                  // "trafego=<nivel> "
+    mov     x2, x26
+    mov     x0, #1
+    bl      escreve_fd
+
+    adrp    x1, msg_contagem_prefixo
+    add     x1, x1, :lo12:msg_contagem_prefixo
+    mov     x0, #1
+    mov     x2, #len_contagem_prefixo
     bl      escreve_fd
 
     mov     x0, x22
@@ -195,16 +237,4 @@ _start:
     add     w0, w0, #1
     str     w0, [x9]
 
-    sub     x21, x21, #1
-    b       .Lpoll_loop
-
-.Lpoll_fim:
-    adrp    x1, msg_fim
-    add     x1, x1, :lo12:msg_fim
-    mov     x0, #1
-    mov     x2, #len_fim
-    bl      escreve_fd
-
-    mov     x0, #0
-    mov     x8, #93                  // exit
-    svc     #0
+    b       .Lpoll_loop              // roda para sempre -- Ctrl+C encerra
