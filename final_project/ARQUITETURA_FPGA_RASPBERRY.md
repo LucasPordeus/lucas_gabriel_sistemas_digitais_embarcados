@@ -29,12 +29,16 @@ Em [`rtl/top_semaforo.v`](rtl/top_semaforo.v), no exato momento do reset
 ```verilog
 tempo_min_reg     <= 6'd10;
 tempo_amarelo_reg <= 6'd3;
-limiar_baixo_reg  <= 6'd3;
-limiar_alto_reg   <= 6'd8;
+limiar_baixo_reg  <= 6'd0;
+limiar_alto_reg   <= 6'd1;
 ```
 
 Isso acontece **antes** de qualquer byte chegar do ARM. A FPGA nunca fica
-"esperando instrução" pra saber o que fazer — ela já sabe.
+"esperando instrução" pra saber o que fazer — ela já sabe. (Os limiares de
+`0`/`1` são valores reduzidos de propósito para facilitar demonstração
+manual — bastam ~2 detecções sustentadas do sensor numa janela pra virar
+"tráfego alto"; um valor de produção mais realista seria algo como `3`/`8`,
+ver comentário em `rtl/top_semaforo.v`.)
 
 ### 2. A decisão de trocar de fase é 100% interna, ciclo a ciclo
 
