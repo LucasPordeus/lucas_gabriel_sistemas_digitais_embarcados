@@ -101,6 +101,12 @@ len_contagem_prefixo = . - msg_contagem_prefixo
 msg_sufixo: .ascii "\n"
 len_sufixo = . - msg_sufixo
 
+msg_bruto_prefixo: .ascii " byte_bruto=0x"
+len_bruto_prefixo = . - msg_bruto_prefixo
+
+hexdigits: .ascii "0123456789ABCDEF"
+hexbuf: .space 2
+
 numbuf: .space 20
 
     .text
@@ -136,6 +142,26 @@ _start:
     mov     w4, #PINO_MISO
     mov     w5, #CMD_KEEPALIVE
     bl      protocolo_serial_transfere   // w0 = byte de telemetria real
+
+    // DIAGNOSTICO: converte o byte bruto (antes de decodificar qualquer
+    // campo) para 2 digitos hexadecimais em hexbuf, pra imprimir mais
+    // tarde -- ajuda a separar "problema no transporte serial/RTL" de
+    // "problema na decodificacao aqui no ARM": se o byte bruto nao bater
+    // com o que rtl/top_semaforo.v deveria mandar, o problema esta antes
+    // daqui (fiacao, timing do bit-banging, ou o bitstream da FPGA
+    // desatualizado); se o byte bruto bater mas os campos decodificados
+    // abaixo nao, o problema esta na decodificacao.
+    adrp    x10, hexdigits
+    add     x10, x10, :lo12:hexdigits
+    adrp    x11, hexbuf
+    add     x11, x11, :lo12:hexbuf
+    lsr     w9, w0, #4
+    and     w9, w9, #0xF
+    ldrb    w14, [x10, x9]
+    strb    w14, [x11]
+    and     w9, w0, #0xF
+    ldrb    w14, [x10, x9]
+    strb    w14, [x11, #1]
 
     lsr     x12, x0, #6
     and     x12, x12, #3             // fase lida (temporario)
@@ -239,6 +265,18 @@ _start:
     adrp    x1, numbuf
     add     x1, x1, :lo12:numbuf
     mov     x0, #1
+    bl      escreve_fd
+
+    adrp    x1, msg_bruto_prefixo
+    add     x1, x1, :lo12:msg_bruto_prefixo
+    mov     x0, #1
+    mov     x2, #len_bruto_prefixo
+    bl      escreve_fd
+
+    adrp    x1, hexbuf
+    add     x1, x1, :lo12:hexbuf
+    mov     x0, #1
+    mov     x2, #2
     bl      escreve_fd
 
     adrp    x1, msg_sufixo
