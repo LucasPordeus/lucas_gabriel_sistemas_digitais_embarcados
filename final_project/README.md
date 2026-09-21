@@ -81,7 +81,6 @@ final_project/
 │   └── (demais programas de cada etapa, mantidos como registro incremental)
 ├── Makefile
 ├── README.md (este arquivo)
-├── Checklist_Rubricas.md   -> rubricas consolidadas da entrega final
 └── docs/evidencias/         -> todos os logs reais de simulação/execução do TP1 ao TP5
 ```
 
