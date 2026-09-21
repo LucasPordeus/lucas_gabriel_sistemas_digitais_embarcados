@@ -1,14 +1,9 @@
 `timescale 1ns/1ps
-// tb_top_semaforo: testbench de integracao completa. Cada caso comeca
-// com um reset proprio para ficar determinístico e facil de depurar
-// (licao aprendida no TP5: nao acumular estado implicito entre casos).
-// Casos 4 e 5 validam a extensao de tempo de verde dinamico por nivel de
-// fluxo: caso 4 mede o tempo ate o pedestre ser liberado sob trafego
-// BAIXO (padrao, sem veiculos), caso 5 sob trafego ALTO (apos um burst
-// real de veiculos), e compara os dois -- o alto precisa ser
-// comprovadamente maior que o baixo. Caso 6 valida a extensao de
-// telemetria de countdown (fase + contagem regressiva) lendo o byte de
-// verdade via miso/sclk, em vez de so' inspecionar os sinais internos.
+// tb_top_semaforo: testbench de integracao completa. Cada caso reseta o
+// DUT para ficar deterministico. Casos 4/5 comparam o tempo ate o
+// pedestre ser liberado sob trafego baixo vs alto (apos burst real de
+// veiculos). Caso 6 le a telemetria de verdade via miso/sclk (fase,
+// nivel_fluxo, contagem) em vez de so' inspecionar sinais internos.
 module tb_top_semaforo;
     reg clk, rst_n, sensor_raw, botao_raw;
     reg sclk, cs_n, mosi;
@@ -20,13 +15,9 @@ module tb_top_semaforo;
     reg [1:0] fase_esperada;
     reg [7:0] contagem_esperada;
 
-    // JANELA_AMOSTRAGEM reduzida para a simulacao rodar rapido (o valor de
-    // producao, 200, so' importa para o "tamanho" relativo da janela real).
-    // DIVISOR_TICK=1 mantem o tick do prescaler disparando a cada ciclo de
-    // clock (equivalente a nao ter prescaler nenhum), preservando a mesma
-    // contagem em "ciclos" que todos os casos abaixo ja validavam antes
-    // desta extensao -- o valor real de hardware (27_000_000, 1 tick/s)
-    // so' e' usado na sintese fisica (ver rtl/prescaler.v).
+    // JANELA_AMOSTRAGEM=200 e DIVISOR_TICK=1: tick a cada ciclo de clock,
+    // preservando a contagem em "ciclos" (o valor real de hardware,
+    // 27_000_000, so' e' usado na sintese fisica -- ver rtl/prescaler.v).
     top_semaforo #(.JANELA_AMOSTRAGEM(200), .DIVISOR_TICK(1)) dut (
         .clk(clk), .rst_n(rst_n),
         .sensor_raw(sensor_raw), .botao_raw(botao_raw),
@@ -49,10 +40,8 @@ module tb_top_semaforo;
 
     task reseta_dut;
         begin
-            // botao_raw agora e' ativo em nivel BAIXO (botao onboard S1,
-            // invertido dentro de top_semaforo.v) -- repouso/nao-pressionado = 1
-            // sensor_raw agora e' ativo em nivel BAIXO (sensor real,
-            // invertido dentro de top_semaforo.v) -- repouso/sem obstaculo = 1
+            // sensor_raw/botao_raw sao ativos em nivel BAIXO (hardware
+            // real, invertidos dentro de top_semaforo.v) -- repouso = 1
             rst_n = 0; sensor_raw = 1; botao_raw = 1;
             sclk = 0; cs_n = 1; mosi = 0;
             espera_clk(2);
@@ -85,46 +74,22 @@ module tb_top_semaforo;
         end
     endtask
 
-    // Le o byte de telemetria (fase + contagem regressiva) via miso. So'
-    // manda 7 pulsos de sclk (nao 8) de proposito: miso_reg desloca o
-    // byte de telemetria a cada borda de subida de sclk (o bit mais
-    // significativo ja fica disponivel assim que cs_n desce, antes do
-    // 1o pulso), entao 7 pulsos bastam pra ler os 8 bits inteiros -- e,
-    // como comando_valido so' pulsa apos o 8o pulso, o "comando" enviado
-    // (mosi=0 junto com cada pulso) nunca chega a ser latched, ou seja,
-    // esta leitura e' garantidamente um no-op sobre a configuracao.
-    // "esperado_*" congela a fase/contagem reais da FSM no exato instante
-    // em que o quadro comeca (cs_n desce) -- e' o mesmo instante em que
-    // protocolo_serial faz o snapshot que vai ser deslocado pelos
-    // proximos ~40 ciclos de "clk" (tempo real do quadro serial). Comparar
-    // contra o valor da FSM lido SO' DEPOIS do quadro inteiro terminar
-    // daria falso-negativo, porque o contador da FSM continua decrementando
-    // durante a leitura -- a mesma pegadinha de timing ja documentada
-    // para o "carrega_cont" (o snapshot vale para o instante da captura,
-    // nao para o instante em que o teste termina de ler).
+    // Le o byte de telemetria via miso com 7 pulsos de sclk (o MSB ja
+    // fica disponivel assim que cs_n desce). Como comando_valido so'
+    // pulsa apos o 8o bit, esta leitura nunca aplica um comando (no-op
+    // sobre a configuracao). "esperado_*" usa as mesmas formulas de
+    // fase_telemetria/tempo_ate_pedestre de top_semaforo.v, congeladas no
+    // instante em que cs_n desce (mesmo instante do snapshot real feito
+    // por protocolo_serial).
     task le_telemetria_serial(output [7:0] byte_lido, output [1:0] esperado_fase,
                                output [7:0] esperado_contagem);
         integer k;
         begin
             cs_n = 0;
-            // congela a referencia o mais perto possivel do instante em
-            // que cs_n desce -- mesmo assim pode ficar 1 ciclo "atras" do
-            // valor real capturado por protocolo_serial: dentro do MESMO
-            // ciclo de clock, o RTL le o valor do registrador *antes* da
-            // borda (o que "shift_out" captura) enquanto qualquer leitura
-            // feita no testbench um instante depois ja' ve' o valor *pos*
-            // borda (ja decrementado) -- por isso a comparacao abaixo
-            // aceita esperado OU esperado+1 (ver comentario na comparacao).
-            // mesma formula de "fase_telemetria" calculada em
-            // top_semaforo.v -- usa o codigo 11 (livre) pra sinalizar
-            // pedido de pedestre pendente durante o CARRO_VERDE.
             if (dut.estado_carro == 2'b10 && dut.solicitacao_pedestre)
                 esperado_fase = 2'b11;
             else
                 esperado_fase = dut.estado_carro;
-            // mesma formula de "tempo_ate_pedestre" calculada em
-            // top_semaforo.v -- a telemetria agora manda esse valor, nao
-            // mais o contagem_atual bruto da fase corrente.
             case (dut.estado_carro)
                 2'b10:   esperado_contagem = dut.u_fsm.contagem_atual + {2'b00, dut.tempo_amarelo_reg};
                 2'b01:   esperado_contagem = dut.u_fsm.contagem_atual;
@@ -141,9 +106,9 @@ module tb_top_semaforo;
         end
     endtask
 
-    // gera N veiculos reais (sensor_raw sobe/desce, respeitando o debounce
-    // de 8 ciclos do sensor) -- usado para construir trafego de verdade,
-    // em vez de forcar sinais internos.
+    // gera N veiculos reais (sensor_raw sobe/desce, respeitando o
+    // debounce de 8 ciclos), construindo trafego real em vez de forcar
+    // sinais internos.
     task gera_veiculos(input integer n);
         integer m;
         begin
@@ -154,9 +119,8 @@ module tb_top_semaforo;
         end
     endtask
 
-    // conta quantos ciclos de clock se passam ate estado_carro virar
-    // amarelo (2'b01), com timeout de seguranca para nao travar a simulacao
-    // caso algo esteja errado.
+    // conta ciclos ate estado_carro virar amarelo, com timeout de
+    // seguranca contra travamento da simulacao
     task aguarda_amarelo(output integer ciclos);
         integer timeout;
         begin
@@ -175,8 +139,7 @@ module tb_top_semaforo;
         $dumpfile("tb_top_semaforo.vcd");
         $dumpvars(0, tb_top_semaforo);
 
-        // ---- Caso 1: estado inicial seguro + tempo de verde padrao (trafego
-        // baixo por default, ninguem passou ainda) ----
+        // ---- Caso 1: estado inicial seguro + tempo de verde padrao ----
         reseta_dut;
         if (led_verde !== 1'b1 || led_ped_vermelho !== 1'b1) begin
             erros = erros + 1;
@@ -217,34 +180,24 @@ module tb_top_semaforo;
             $display("[FALHA] ponteiro_escrita_w=%0d, esperado 3 (3 veiculos contados)", dut.ponteiro_escrita_w);
         end else $display("[OK]    3 veiculos contados corretamente (ponteiro_escrita_w=3)");
 
-        // ---- Caso 4: trafego BAIXO (nenhum veiculo) -> mede o tempo real
-        // ate o pedestre ser liberado (amarelo comeca) ----
+        // ---- Caso 4: trafego BAIXO -> mede o tempo ate o pedestre ser liberado ----
         reseta_dut;
         botao_raw = 0; // pressionado (ativo em baixo)
         aguarda_amarelo(ciclos_baixo);
         botao_raw = 1; // solto
         $display("[INFO]  trafego BAIXO: %0d ciclos ate o inicio do amarelo (tempo_min_efetivo=5)", ciclos_baixo);
-        // deixa o ciclo terminar (amarelo + pedestre) antes do proximo caso
-        espera_clk(2 + 15 + 5);
+        espera_clk(2 + 15 + 5); // deixa o ciclo terminar antes do proximo caso
 
-        // ---- Caso 5: trafego ALTO -> constroi um burst real de veiculos
-        // (50 veiculos ao longo de ~5 janelas de amostragem) ate nivel_fluxo
-        // virar ALTO, so' entao pressiona o botao e mede o mesmo tempo ----
-        //
-        // Detalhe de timing importante (descoberto rodando esta simulacao):
-        // fsm_semaforo so' recarrega o contador no INSTANTE em que entra
-        // numa fase nova (carrega_cont), nao a cada ciclo. Isso quer dizer
-        // que o burst de veiculos gerado logo apos o reset muda nivel_fluxo
-        // para ALTO enquanto o sistema ainda esta na 1a fase de verde, que
-        // ja tinha sido carregada (com o valor BAIXO de entao) no proprio
-        // reset -- pressionar o botao nesse momento mediria o valor antigo,
-        // nao o novo. Por isso o teste faz um 1o ciclo "descartavel" (usando
-        // o tempo antigo, curto) so' para reentrar em CARRO_VERDE UMA VEZ
-        // DEPOIS do burst; e' nesse 2o reload que tempo_min_efetivo=20 (ja
-        // ALTO) e' de fato carregado no contador, e so' entao a 2a pressao
-        // do botao mede o tempo que realmente importa para este caso.
+        // ---- Caso 5: trafego ALTO (burst de 50 veiculos em ~5 janelas de
+        // amostragem) -> mede o mesmo tempo e compara com o caso 4.
+        // fsm_semaforo so' recarrega o contador ao ENTRAR numa fase nova,
+        // entao um burst gerado logo apos o reset so' afeta o tempo da
+        // fase seguinte, nao a que ja estava carregada. Por isso ha' um
+        // 1o ciclo descartavel (usando o tempo_min_efetivo antigo) so'
+        // para reentrar em CARRO_VERDE com o novo valor (alto=20) ja
+        // carregado; a 2a pressao mede o tempo que importa.
         reseta_dut;
-        gera_veiculos(50); // ~50 * 20 ciclos = 1000 ciclos = 5 janelas de 200
+        gera_veiculos(50); // ~50*20 ciclos = 1000 ciclos = 5 janelas de 200
         if (dut.nivel_fluxo !== 2'b10) begin
             erros = erros + 1;
             $display("[FALHA] nivel_fluxo=%b apos o burst de veiculos, esperado 10 (alto)", dut.nivel_fluxo);
@@ -256,23 +209,18 @@ module tb_top_semaforo;
                       dut.tempo_min_efetivo);
         end else $display("[OK]    tempo_min_efetivo=20 (dobro do padrao, trafego alto -> pedestre espera mais)");
 
-        // 1o ciclo (descartavel): ainda usa o valor carregado no reset
-        // (baixo=5), so' para passar por amarelo+pedestre e voltar a
-        // CARRO_VERDE -- reentrada em que o novo valor (alto=20) sera' carregado.
-        botao_raw = 0; // pressionado (ativo em baixo)
-        espera_clk(15); // debounce + garante que ja esta em amarelo
-        botao_raw = 1; // solto
-        espera_clk(3 + 2 + 15 + 3); // resto do amarelo (padrao=3) + pedestre (15) + margem
+        botao_raw = 0; // 1a pressao (descartavel, ainda com o tempo antigo)
+        espera_clk(15);
+        botao_raw = 1;
+        espera_clk(3 + 2 + 15 + 3);
         if (dut.estado_carro !== 2'b10) begin
             erros = erros + 1;
             $display("[FALHA] nao retornou a CARRO_VERDE apos o 1o ciclo descartavel (estado_carro=%b)", dut.estado_carro);
         end
 
-        // 2a pressao (a que de fato mede o efeito do trafego alto): o
-        // contador desta fase ja foi recarregado com tempo_min_efetivo=20.
-        botao_raw = 0; // pressionado (ativo em baixo)
+        botao_raw = 0; // 2a pressao: mede o efeito real do trafego alto
         aguarda_amarelo(ciclos_alto);
-        botao_raw = 1; // solto
+        botao_raw = 1;
         $display("[INFO]  trafego ALTO: %0d ciclos ate o inicio do amarelo (tempo_min_efetivo=20)", ciclos_alto);
 
         if (ciclos_alto <= ciclos_baixo) begin
@@ -282,10 +230,7 @@ module tb_top_semaforo;
         end else $display("[OK]    comportamento dinamico confirmado: trafego alto atrasa a liberacao do pedestre (%0d > %0d ciclos)",
                       ciclos_alto, ciclos_baixo);
 
-        // ---- Caso 6: telemetria de countdown lida de verdade via
-        // miso/sclk (nao so' inspecionada internamente) -- confirma que
-        // o byte que a Raspberry Pi receberia bate com a fase e a
-        // contagem regressiva reais da FSM no instante da leitura ----
+        // ---- Caso 6: telemetria lida de verdade via miso/sclk ----
         reseta_dut;
         le_telemetria_serial(telemetria_lida, fase_esperada, contagem_esperada);
         if (telemetria_lida[7:6] !== fase_esperada) begin
@@ -296,14 +241,10 @@ module tb_top_semaforo;
                       telemetria_lida[7:6]);
 
         // aceita esperado OU esperado+1: protocolo_serial captura o valor
-        // do registrador da FSM "entrando" na borda de clock em que cs_n
-        // ainda estava em 1, enquanto o testbench le' o mesmo registrador
-        // um instante depois (ja' contabilizando aquela borda) -- e' o
-        // mesmo tipo de defasagem de 1 ciclo entre leitura e escrita
-        // registrada que ja apareceu antes neste projeto (carrega_cont).
-        // Compara so' os 4 bits baixos: a contagem agora e' truncada pra
-        // 4 bits no byte de telemetria (ver comentario em top_semaforo.v),
-        // pra abrir espaco pro nivel_fluxo nos bits [5:4].
+        // do registrador 1 ciclo "antes" do que o testbench le' depois --
+        // mesma defasagem ja' vista em carrega_cont. Compara so' os 4
+        // bits baixos porque a contagem e' truncada no byte de telemetria
+        // (ver top_semaforo.v) para abrir espaco pro nivel_fluxo.
         if (telemetria_lida[3:0] !== contagem_esperada[3:0] &&
             telemetria_lida[3:0] !== contagem_esperada[3:0] + 4'd1) begin
             erros = erros + 1;

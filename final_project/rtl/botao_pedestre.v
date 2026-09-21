@@ -1,6 +1,6 @@
 // botao_pedestre: debounce do botao de pedestre + latch de solicitacao.
-// A solicitacao fica travada (mesmo apos soltar o botao) at ser liberada
-// externamente por "limpa_solicitacao" (a FSM do TP3 usa esse sinal ao
+// A solicitacao fica travada (mesmo apos soltar o botao) ate ser liberada
+// externamente por "limpa_solicitacao" (fsm_semaforo usa esse sinal ao
 // entrar na fase de pedestre verde).
 module botao_pedestre #(
     parameter N_CYCLES = 8

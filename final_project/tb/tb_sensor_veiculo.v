@@ -1,3 +1,5 @@
+// Testbench do sensor_veiculo: gera ruido curto (ignorado) e dois sinais
+// estaveis, confirmando exatamente 2 pulsos de deteccao.
 `timescale 1ns/1ps
 module tb_sensor_veiculo;
     localparam N = 4;

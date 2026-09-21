@@ -1,24 +1,13 @@
 // monitor_semaforo.s - AArch64 (GAS)
-// Log em tempo real (na Raspberry Pi) do countdown de
-// quanto tempo falta para o semaforo dos carros e do pedestre fecharem.
+// Simula o log de countdown do semaforo (fase + contagem regressiva,
+// formato de protocolo_serial.v/top_semaforo.v) sem hardware conectado:
+// monta o byte de telemetria, transmite/recebe via buffer circular de
+// libembarcado.a (simulando o shift register serial), decodifica de
+// volta e imprime -- cada tick dorme 1s real via nanosleep, e o tempo
+// total e' conferido no fim via clock_gettime.
 //
-// Cada "tick" deste programa reproduz o que a Raspberry Pi faria de
-// verdade a cada poll: monta o byte de telemetria (fase da FSM + contagem
-// regressiva -- exatamente o mesmo formato de protocolo_serial.v/
-// top_semaforo.v, [7:6]=fase [5:0]=contagem), "transmite" esse byte via
-// o buffer circular de libembarcado.a (simulando o shift register serial
-// sclk/mosi/miso, do mesmo jeito que main_tp5.s simula o round-trip do
-// protocolo -- aqui nao ha placa fisica conectada neste ambiente de
-// desenvolvimento) e so' ENTAO decodifica de volta fase/contagem a partir
-// do byte lido, exatamente como o software real faria ao receber miso.
-// O que torna isso um log "em tempo real" de fato: cada tick dorme 1
-// segundo real via nanosleep (nao e' uma simulacao instantanea), e o
-// tempo real total decorrido e' medido no fim via clock_gettime e
-// comparado com o esperado -- mesma metodologia de verificacao real
-// usada em main_tp5.s.
-//
-// Cenarios demonstrados (usando os mesmos valores de tempo_min_efetivo
-// calculados pela FPGA em top_semaforo.v para nivel_fluxo baixo/alto):
+// Cenarios (valores de tempo_min_efetivo calculados por top_semaforo.v
+// para nivel_fluxo baixo/alto):
 //   Cenario 1 (trafego BAIXO): verde=5s, amarelo=3s, pedestre=15s
 //   Cenario 2 (trafego ALTO):  verde=20s, amarelo=3s, pedestre=15s
 

@@ -1,8 +1,7 @@
 // bram_historico: buffer circular de 256 amostras (inferido em BRAM pelo
-// Gowin EDA, por ser uma memoria sincrona com porta de escrita e porta de
-// leitura independentes e enderecos de 8 bits). Guarda a contagem de
-// veiculos de cada intervalo de amostragem, para uso pelo filtro de media
-// movel e por telemetria futura (TP5).
+// Gowin EDA, por ser memoria sincrona com portas de escrita e leitura
+// independentes e enderecos de 8 bits). Guarda a contagem de veiculos de
+// cada intervalo de amostragem, para uso pelo filtro de media movel.
 module bram_historico (
     input  wire       clk,
     input  wire       rst_n,

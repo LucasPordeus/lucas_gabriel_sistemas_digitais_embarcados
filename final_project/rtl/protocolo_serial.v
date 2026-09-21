@@ -1,6 +1,6 @@
-// protocolo_serial: protocolo final de comunicacao ARM<->FPGA (substitui o
-// barramento paralelo do TP3/TP4 por uma interface serial sincrona, estilo
-// SPI simplificado), com handshaking completo e telemetria bidirecional.
+// protocolo_serial: interface serial sincrona ARM<->FPGA, estilo SPI
+// simplificado (CPOL=0/CPHA=0), com telemetria bidirecional por quadro
+// de 8 bits.
 //
 // Sinais:
 //   sclk  (entrada, gerado pelo ARM)  -- clock serial da transferencia

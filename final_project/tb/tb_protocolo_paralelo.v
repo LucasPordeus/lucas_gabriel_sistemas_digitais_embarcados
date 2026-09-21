@@ -1,3 +1,6 @@
+// Testbench do protocolo_paralelo: confere valores padrao no reset,
+// aplicacao de comandos OP_TEMPO_MIN/OP_LIMIAR_ALTO via strobe, e retorno
+// de ack ao repouso entre comandos.
 `timescale 1ns/1ps
 module tb_protocolo_paralelo;
     reg clk, rst_n, strobe;

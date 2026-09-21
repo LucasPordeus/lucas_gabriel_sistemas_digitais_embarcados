@@ -1,21 +1,7 @@
-// prescaler: gera um pulso de 1 ciclo de "clk" (tick) a cada DIVISOR
-// ciclos, usado para converter os "ciclos de clock" que contador_tempo
-// usa internamente em unidades de tempo perceptiveis por humanos em
-// hardware real.
-//
-// A Tang Nano 4K roda a 27 MHz sem nenhum divisor no meio (ressalva ja
-// documentada em top_semaforo.v/CONTEXTO_PROJETO): sem isso, um "tempo de
-// verde = 10" dura ~370 ns -- impossivel de perceber ao vivo, mesmo
-// apertando o botao de pedestre. Com DIVISOR=27_000_000 (padrao), o tick
-// dispara 1 vez por segundo real, entao cada unidade de tempo_min/
-// tempo_amarelo/tempo_pedestre passa a valer 1 segundo de verdade.
-//
-// Em testbenches, DIVISOR=1 faz o tick disparar em todo ciclo de "clk" --
-// ou seja, contador_tempo decrementa exatamente como antes desta
-// extensao, preservando 100% da temporizacao (e dos resultados) de todos
-// os testbenches ja validados. Mesma tecnica ja usada para
-// JANELA_AMOSTRAGEM em top_semaforo.v (parametro pequeno na simulacao,
-// maior em hardware real).
+// prescaler: gera um pulso de 1 ciclo (tick) a cada DIVISOR ciclos de
+// clk. Converte os ciclos de clock que contador_tempo usa em unidades de
+// tempo real (DIVISOR=27_000_000 -> 1 tick/s a 27 MHz). DIVISOR=1 faz o
+// tick disparar todo ciclo, usado em testbenches para simular em ciclos.
 module prescaler #(
     parameter integer DIVISOR = 27_000_000
 ) (

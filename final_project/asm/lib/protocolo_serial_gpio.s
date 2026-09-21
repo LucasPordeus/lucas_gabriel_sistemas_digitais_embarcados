@@ -1,14 +1,15 @@
 // protocolo_serial_gpio.s - AArch64 (GAS)
-// Driver de GPIO "bit-banged" 
-// Timing (equivalente a SPI modo CPOL=0/CPHA=0), deduzido diretamente da
-// logica de protocolo_serial.v:
-//   - enquanto cs_n=1 (fora do quadro), a FPGA mantem miso estavel no bit
-//     mais significativo da telemetria atual;
+// Driver de GPIO bit-banged do protocolo serial ARM<->FPGA (equivalente a
+// SPI modo CPOL=0/CPHA=0), deduzido da logica de protocolo_serial.v:
+//   - com cs_n=1 (fora do quadro), a FPGA mantem miso estavel no bit mais
+//     significativo da telemetria atual;
 //   - a cada borda de SUBIDA de sclk, a FPGA amostra mosi e desloca miso
-//     para o proximo bit -- ou seja, cada bit de miso deve ser LIDO ANTES
-//     de subir sclk, nao depois;
+//     para o proximo bit -- cada bit de miso deve ser LIDO ANTES de subir
+//     sclk, nao depois;
 //   - MSB primeiro, 8 bits por quadro, em ambas as direcoes.
 //
+// Nao usa o sinal "busy": o pulso dura 1 ciclo de clock da FPGA (~37 ns),
+// curto demais para polling confiavel em software de espaco de usuario.
 
     .text
     .global protocolo_serial_configura_pinos
@@ -17,13 +18,10 @@
 GPSET0_OFF   = 0x1C
 GPCLR0_OFF   = 0x28
 GPLEV0_OFF   = 0x34
-// ATRASO_ITER: 200 (valor original) da' um SCLK na faixa de ~1-2 MHz num
-// Raspberry Pi Zero 2W -- folga de sobra pro CLOCK da FPGA (27 MHz, ~37
-// ns/ciclo), mas rapido o suficiente pra sofrer ringing/crosstalk em fios
-// soltos de protoboard (leituras de MISO instaveis, bits isolados
-// invertendo por ruido). Como so' fazemos 1 transferencia por segundo,
-// nao ha custo nenhum em deixar bem mais lento -- aumentado 100x (~10-20
-// kHz de SCLK) pra sair da faixa onde protoboard costuma dar problema.
+// ATRASO_ITER: iteracoes de espera entre transicoes de pino. 20000 da'
+// SCLK na faixa de ~10-20 kHz, bem abaixo da frequencia onde fios soltos
+// de protoboard costumam sofrer ringing/crosstalk (sem custo, ja que so'
+// fazemos 1 transferencia por segundo).
 ATRASO_ITER  = 20000
 
 // ---- protocolo_serial_configura_pinos(x0=base,w1=sclk,w2=cs_n,w3=mosi,w4=miso) ----

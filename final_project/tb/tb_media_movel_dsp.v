@@ -1,3 +1,5 @@
+// Testbench do media_movel_dsp: preenche a janela de 5 amostras, confere
+// a media calculada e a classificacao de nivel_fluxo contra os limiares.
 `timescale 1ns/1ps
 module tb_media_movel_dsp;
     reg clk, rst_n, nova_amostra;

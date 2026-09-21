@@ -1,3 +1,7 @@
+// Testbench da fsm_semaforo: percorre o ciclo completo CARRO_VERDE ->
+// CARRO_AMARELO -> PEDESTRE_VERDE -> CARRO_VERDE, confirmando a regra de
+// seguranca (sem solicitacao, permanece em verde) e o pulso de
+// limpa_solicitacao ao fim da fase de pedestre.
 `timescale 1ns/1ps
 module tb_fsm_semaforo;
     localparam W = 8;

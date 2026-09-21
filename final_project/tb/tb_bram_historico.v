@@ -1,3 +1,5 @@
+// Testbench do bram_historico: escreve 4 amostras conhecidas e confere
+// avanco do ponteiro circular e leitura sincrona correta de cada endereco.
 `timescale 1ns/1ps
 module tb_bram_historico;
     reg clk, rst_n, escreve;

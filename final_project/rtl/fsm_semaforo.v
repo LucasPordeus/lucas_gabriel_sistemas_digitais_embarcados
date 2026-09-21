@@ -1,21 +1,16 @@
-// fsm_semaforo: maquina de estados finitos do semaforo, hierarquica
-// (instancia contador_tempo para os tempos minimos de cada fase).
-// Estados: CARRO_VERDE -> CARRO_AMARELO -> PEDESTRE_VERDE -> CARRO_VERDE
-// A solicitacao do pedestre so e atendida apos o tempo minimo de verde
-// dos veiculos ter decorrido (ONF-08: seguranca do cruzamento).
-// Extensao (log em tempo real): "contagem_atual" expoe o valor corrente
-// do contador regressivo (o mesmo "valor_atual_cont" interno), para que
-// o nivel de topo possa telemetrar quanto tempo falta pra fase atual
-// terminar -- e' o que alimenta o countdown lido pela Raspberry Pi.
+// fsm_semaforo: maquina de estados do semaforo de veiculos/pedestre.
+// Estados: CARRO_VERDE -> CARRO_AMARELO -> PEDESTRE_VERDE -> CARRO_VERDE.
+// A transicao pro amarelo so ocorre com tempo minimo de verde esgotado E
+// solicitacao de pedestre pendente (ONF-08: nunca interrompe o transito
+// sem pedido). contagem_atual expoe o contador regressivo da fase
+// corrente, usado na telemetria do protocolo serial.
 module fsm_semaforo #(
     parameter LARGURA_TEMPO = 16
 ) (
     input  wire                      clk,
     input  wire                      rst_n,
-    input  wire                      tick,             // habilita o decremento do contador
-                                                         // (1 por ciclo de "clk" se sempre 1;
-                                                         // ver rtl/prescaler.v para gerar um
-                                                         // tick mais lento em hardware real)
+    input  wire                      tick,             // habilita o decremento
+                                                         // do contador (ver rtl/prescaler.v)
     input  wire                      solicitacao_pedestre,
     input  wire [LARGURA_TEMPO-1:0]  tempo_min_verde,
     input  wire [LARGURA_TEMPO-1:0]  tempo_amarelo,

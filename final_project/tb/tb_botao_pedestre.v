@@ -1,3 +1,5 @@
+// Testbench do botao_pedestre: confere que a solicitacao trava apos um
+// pulso de pressao e so' e' liberada por limpa_solicitacao.
 `timescale 1ns/1ps
 module tb_botao_pedestre;
     localparam N = 4;

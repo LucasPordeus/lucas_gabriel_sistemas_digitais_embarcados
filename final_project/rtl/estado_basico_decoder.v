@@ -1,6 +1,6 @@
-// estado_basico_decoder: decodificador combinacional preliminar.
-// Mapeia um estado de 2 bits do semaforo de veiculos para os 3 LEDs
-// (vermelho, amarelo, verde). Base para o decodificador completo do TP2.
+// estado_basico_decoder: decodificador combinacional puro. Mapeia um
+// estado de 2 bits do semaforo de veiculos para os 3 LEDs correspondentes
+// (vermelho, amarelo, verde).
 module estado_basico_decoder (
     input  wire [1:0] estado,      // 00=vermelho 01=amarelo 10=verde 11=invalido
     output wire       led_vermelho,

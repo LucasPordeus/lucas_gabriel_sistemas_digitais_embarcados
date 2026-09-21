@@ -1,3 +1,5 @@
+// Testbench do contador_tempo: confere carga do valor inicial, decremento
+// ate zerar, e saturacao em zero (nao decrementa abaixo disso).
 `timescale 1ns/1ps
 module tb_contador_tempo;
     localparam W = 8;

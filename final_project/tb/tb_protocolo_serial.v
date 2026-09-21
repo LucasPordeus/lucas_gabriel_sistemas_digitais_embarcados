@@ -1,3 +1,6 @@
+// Testbench do protocolo_serial: confere alta impedancia de MISO fora do
+// quadro, handshake de inicio/fim via cs_n, MSB da telemetria disponivel
+// antes do primeiro pulso de sclk, e captura correta do comando apos 8 bits.
 `timescale 1ns/1ps
 module tb_protocolo_serial;
     reg clk, rst_n, sclk, cs_n, mosi;
