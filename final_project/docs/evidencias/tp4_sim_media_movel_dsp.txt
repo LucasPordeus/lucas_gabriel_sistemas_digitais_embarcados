@@ -1,7 +1,9 @@
+mkdir -p build; iverilog -g2012 -o build/media_movel_dsp.vvp rtl/media_movel_dsp.v tb/tb_media_movel_dsp.v
+vvp build/media_movel_dsp.vvp
 VCD info: dumpfile tb_media_movel_dsp.vcd opened for output.
 [OK]    media=10 com janela de 5 amostras iguais a 10
 [OK]    nivel_fluxo=BAIXO conforme limiar_baixo=15
 [OK]    media=20 apos deslizar a janela com nova amostra 60
 [OK]    nivel_fluxo=MEDIO conforme limiares
 RESULTADO: TODOS OS CASOS PASSARAM (4/4)
-tb/tb_media_movel_dsp.v:76: $finish called at 146000 (1ps)
+tb/tb_media_movel_dsp.v:78: $finish called at 146000 (1ps)

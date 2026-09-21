@@ -1,0 +1,148 @@
+$date
+	Sun Sep 20 21:23:00 2026
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module tb_protocolo_paralelo $end
+$var wire 6 ! tempo_min_reg [5:0] $end
+$var wire 6 " tempo_amarelo_reg [5:0] $end
+$var wire 6 # limiar_baixo_reg [5:0] $end
+$var wire 6 $ limiar_alto_reg [5:0] $end
+$var wire 1 % ack $end
+$var reg 1 & clk $end
+$var reg 8 ' dados [7:0] $end
+$var reg 1 ( rst_n $end
+$var reg 1 ) strobe $end
+$var integer 32 * erros [31:0] $end
+$scope module dut $end
+$var wire 1 & clk $end
+$var wire 8 + dados [7:0] $end
+$var wire 1 ( rst_n $end
+$var wire 1 ) strobe $end
+$var wire 1 , strobe_borda $end
+$var parameter 2 - OP_LIMIAR_ALTO $end
+$var parameter 2 . OP_LIMIAR_BAIXO $end
+$var parameter 2 / OP_TEMPO_AMARELO $end
+$var parameter 2 0 OP_TEMPO_MIN $end
+$var reg 1 % ack $end
+$var reg 6 1 limiar_alto_reg [5:0] $end
+$var reg 6 2 limiar_baixo_reg [5:0] $end
+$var reg 1 3 strobe_ant $end
+$var reg 6 4 tempo_amarelo_reg [5:0] $end
+$var reg 6 5 tempo_min_reg [5:0] $end
+$upscope $end
+$scope task envia_comando $end
+$var reg 2 6 opcode [1:0] $end
+$var reg 6 7 valor [5:0] $end
+$upscope $end
+$scope task espera_ciclos $end
+$var integer 32 8 i [31:0] $end
+$var integer 32 9 n [31:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+b0 0
+b1 /
+b10 .
+b11 -
+$end
+#0
+$dumpvars
+b10 9
+b0 8
+bx 7
+bx 6
+b1010 5
+b11 4
+03
+b11 2
+b1000 1
+0,
+b0 +
+b0 *
+0)
+0(
+b0 '
+0&
+0%
+b1000 $
+b11 #
+b11 "
+b1010 !
+$end
+#5000
+1&
+#6000
+b1 8
+#10000
+0&
+#15000
+1&
+#16000
+b1 9
+1(
+b0 8
+#20000
+0&
+#25000
+1&
+#26000
+1,
+1)
+b10100 '
+b10100 +
+b10100 7
+b0 6
+b0 8
+#30000
+0&
+#35000
+0,
+13
+b10100 !
+b10100 5
+1%
+1&
+#36000
+0)
+b0 8
+#40000
+0&
+#45000
+0%
+03
+1&
+#46000
+1,
+1)
+b11001111 '
+b11001111 +
+b1111 7
+b11 6
+b0 8
+#50000
+0&
+#55000
+0,
+13
+b1111 $
+b1111 1
+1%
+1&
+#56000
+0)
+b0 8
+#60000
+0&
+#65000
+0%
+03
+1&
+#66000
+b1 8

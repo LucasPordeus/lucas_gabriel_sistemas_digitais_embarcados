@@ -1,5 +1,7 @@
+mkdir -p build; iverilog -g2012 -o build/botao_pedestre.vvp rtl/debounce.v rtl/botao_pedestre.v tb/tb_botao_pedestre.v
+vvp build/botao_pedestre.vvp
 VCD info: dumpfile tb_botao_pedestre.vcd opened for output.
 [OK]    solicitacao travada mesmo apos soltar o botao
 [OK]    solicitacao limpa corretamente
 RESULTADO: TODOS OS CASOS PASSARAM (2/2)
-tb/tb_botao_pedestre.v:55: $finish called at 165000 (1ps)
+tb/tb_botao_pedestre.v:57: $finish called at 165000 (1ps)

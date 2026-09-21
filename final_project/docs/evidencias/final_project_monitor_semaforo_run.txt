@@ -65,4 +65,4 @@
 [t=59s] Sinal do PEDESTRE: VERDE  -> fecha em 2s (fase+contagem decodificados do byte de telemetria via miso)
 [t=60s] Sinal do PEDESTRE: VERDE  -> fecha em 1s (fase+contagem decodificados do byte de telemetria via miso)
 
-=== fim da simulacao -- tempo real total decorrido: 61013426710 ns (esperado ~= 61000000000 ns, 61 segundos reais) ===
+=== fim da simulacao -- tempo real total decorrido: 61012328706 ns (esperado ~= 61000000000 ns, 61 segundos reais) ===

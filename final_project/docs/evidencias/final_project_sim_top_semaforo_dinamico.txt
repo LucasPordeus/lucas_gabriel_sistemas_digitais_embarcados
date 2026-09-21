@@ -1,3 +1,5 @@
+mkdir -p build; iverilog -g2012 -o build/top_semaforo.vvp rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/prescaler.v rtl/top_semaforo.v tb/tb_top_semaforo.v
+vvp build/top_semaforo.vvp
 VCD info: dumpfile tb_top_semaforo.vcd opened for output.
 [OK]    estado inicial seguro: veiculos=VERDE, pedestre=VERMELHO
 [OK]    nivel_fluxo=BAIXO por padrao (nenhum veiculo ainda)
@@ -11,6 +13,7 @@ VCD info: dumpfile tb_top_semaforo.vcd opened for output.
 [INFO]  trafego ALTO: 14 ciclos ate o inicio do amarelo (tempo_min_efetivo=20)
 [OK]    comportamento dinamico confirmado: trafego alto atrasa a liberacao do pedestre (14 > 11 ciclos)
 [OK]    telemetria de fase (10) bate com estado_carro real
-[OK]    telemetria de contagem regressiva (5) bate com a FSM real (referencia=4) -- e' o valor que alimentaria o countdown da Raspberry Pi
+[OK]    telemetria de contagem regressiva (8) bate com a FSM real (referencia=7) -- e' o valor que alimentaria o countdown da Raspberry Pi
+[OK]    telemetria de nivel_fluxo (00) bate com o real
 RESULTADO: TODOS OS CASOS PASSARAM (12/12)
-tb/tb_top_semaforo.v:294: $finish called at 13206000 (1ps)
+tb/tb_top_semaforo.v:265: $finish called at 13206000 (1ps)

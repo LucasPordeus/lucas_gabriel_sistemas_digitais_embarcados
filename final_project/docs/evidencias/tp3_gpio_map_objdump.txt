@@ -1,5 +1,5 @@
 
-build/gpio_map:     file format elf64-littleaarch64
+/tmp/asm_build/gpio_map:     file format elf64-littleaarch64
 
 
 Disassembly of section .text:

@@ -1,4 +1,6 @@
+mkdir -p build; iverilog -g2012 -o build/sensor_veiculo.vvp rtl/debounce.v rtl/sensor_veiculo.v tb/tb_sensor_veiculo.v
+vvp build/sensor_veiculo.vvp
 VCD info: dumpfile tb_sensor_veiculo.vcd opened for output.
 [OK]    2 veiculos detectados corretamente (pulsos=2)
 RESULTADO: TODOS OS CASOS PASSARAM (1/1)
-tb/tb_sensor_veiculo.v:55: $finish called at 295000 (1ps)
+tb/tb_sensor_veiculo.v:57: $finish called at 295000 (1ps)

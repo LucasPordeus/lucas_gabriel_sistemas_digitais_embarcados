@@ -1,7 +1,9 @@
+mkdir -p build; iverilog -g2012 -o build/protocolo_paralelo.vvp rtl/protocolo_paralelo.v tb/tb_protocolo_paralelo.v
+vvp build/protocolo_paralelo.vvp
 VCD info: dumpfile tb_protocolo_paralelo.vcd opened for output.
 [OK]    valores padrao de seguranca carregados apos reset
 [OK]    comando OP_TEMPO_MIN=20 aplicado corretamente
 [OK]    comando OP_LIMIAR_ALTO=15 aplicado corretamente
 [OK]    ack em repouso = 0 (pulso de 1 ciclo por comando)
 RESULTADO: TODOS OS CASOS PASSARAM (4/4)
-tb/tb_protocolo_paralelo.v:72: $finish called at 66000 (1ps)
+tb/tb_protocolo_paralelo.v:75: $finish called at 66000 (1ps)

@@ -1,3 +1,5 @@
+mkdir -p build; iverilog -g2012 -o build/tp1_decoder.vvp rtl/estado_basico_decoder.v tb/tb_estado_basico_decoder.v
+vvp build/tp1_decoder.vvp
 VCD info: dumpfile tb_estado_basico_decoder.vcd opened for output.
 [OK]    estado=00 -> V=1 A=0 G=0
 [OK]    estado=01 -> V=0 A=1 G=0

@@ -1,3 +1,5 @@
+mkdir -p build; iverilog -g2012 -o build/bram_historico.vvp rtl/bram_historico.v tb/tb_bram_historico.v
+vvp build/bram_historico.vvp
 VCD info: dumpfile tb_bram_historico.vcd opened for output.
 [OK]    ponteiro_escrita avancou para 4 apos 4 escritas
 [OK]    endereco 0: lido 10 corretamente
@@ -5,4 +7,4 @@ VCD info: dumpfile tb_bram_historico.vcd opened for output.
 [OK]    endereco 2: lido 30 corretamente
 [OK]    endereco 3: lido 40 corretamente
 RESULTADO: TODOS OS CASOS PASSARAM (5/5)
-tb/tb_bram_historico.v:62: $finish called at 146000 (1ps)
+tb/tb_bram_historico.v:64: $finish called at 146000 (1ps)

@@ -1,3 +1,5 @@
+mkdir -p build; iverilog -g2012 -o build/fsm_semaforo.vvp rtl/contador_tempo.v rtl/fsm_semaforo.v tb/tb_fsm_semaforo.v
+vvp build/fsm_semaforo.vvp
 VCD info: dumpfile tb_fsm_semaforo.vcd opened for output.
 [OK]    estado inicial = CARRO_VERDE
 [OK]    sem solicitacao pendente, permanece em CARRO_VERDE (seguranca)
@@ -6,4 +8,4 @@ VCD info: dumpfile tb_fsm_semaforo.vcd opened for output.
 [OK]    limpa_solicitacao pulsado corretamente
 [OK]    retornou para CARRO_VERDE, ciclo completo validado
 RESULTADO: TODOS OS CASOS PASSARAM (5/5)
-tb/tb_fsm_semaforo.v:92: $finish called at 206000 (1ps)
+tb/tb_fsm_semaforo.v:96: $finish called at 206000 (1ps)

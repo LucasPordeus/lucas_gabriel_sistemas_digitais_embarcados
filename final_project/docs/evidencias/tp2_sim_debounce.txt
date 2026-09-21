@@ -1,3 +1,5 @@
+mkdir -p build; iverilog -g2012 -o build/debounce.vvp rtl/debounce.v tb/tb_debounce.v
+vvp build/debounce.vvp
 VCD info: dumpfile tb_debounce.vcd opened for output.
 [OK]    ruido de bouncing ignorado (out_stable ainda em 0)
 [OK]    nivel estavel em 1 propagou para out_stable apos 4 ciclos
