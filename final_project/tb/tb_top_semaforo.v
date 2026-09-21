@@ -115,7 +115,13 @@ module tb_top_semaforo;
             // feita no testbench um instante depois ja' ve' o valor *pos*
             // borda (ja decrementado) -- por isso a comparacao abaixo
             // aceita esperado OU esperado+1 (ver comentario na comparacao).
-            esperado_fase = dut.estado_carro;
+            // mesma formula de "fase_telemetria" calculada em
+            // top_semaforo.v -- usa o codigo 11 (livre) pra sinalizar
+            // pedido de pedestre pendente durante o CARRO_VERDE.
+            if (dut.estado_carro == 2'b10 && dut.solicitacao_pedestre)
+                esperado_fase = 2'b11;
+            else
+                esperado_fase = dut.estado_carro;
             // mesma formula de "tempo_ate_pedestre" calculada em
             // top_semaforo.v -- a telemetria agora manda esse valor, nao
             // mais o contagem_atual bruto da fase corrente.

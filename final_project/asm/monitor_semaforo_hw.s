@@ -26,9 +26,14 @@
 // clockar e assim receber a telemetria de volta por miso.
 //
 // Formato do byte de telemetria (ver rtl/top_semaforo.v):
-//   [7:6] = fase do semaforo de carros (00=vermelho/pedestre-verde,
-//           01=amarelo, 10=verde) -- o status do PEDESTRE e' o oposto:
-//           fase=00 -> pedestre VERDE; fase=01 ou 10 -> pedestre VERMELHO
+//   [7:6] = fase do semaforo de carros -- 00=vermelho/pedestre-verde,
+//           01=amarelo, 10=verde SEM pedido de pedestre pendente,
+//           11=verde COM pedido de pedestre pendente (o codigo 11 nunca
+//           era usado antes; foi aproveitado pra sinalizar isso sem
+//           gastar bit novo). O status do PEDESTRE e' o oposto do carro:
+//           fase=00 -> pedestre VERDE; qualquer outra fase -> VERMELHO.
+//           O pedido em si (alguem ja apertou o botao) e' SIM em 00/01/11,
+//           e NAO so' em 10 (verde, ninguem apertou ainda).
 //   [5:4] = nivel de trafego (00=baixo 01=medio 10=alto)
 //   [3:0] = tempo_ate_pedestre, TRUNCADO para 4 bits (0-15) -- quanto
 //           falta de verdade pro pedestre poder atravessar (nao so' o
@@ -97,6 +102,18 @@ len_trafego_alto = . - msg_trafego_alto
 
 msg_contagem_prefixo: .ascii "abre_pedestre_em="
 len_contagem_prefixo = . - msg_contagem_prefixo
+
+msg_pedido_sim: .ascii "PEDIDO_PEDESTRE=SIM "
+len_pedido_sim = . - msg_pedido_sim
+
+msg_pedido_nao: .ascii "PEDIDO_PEDESTRE=NAO "
+len_pedido_nao = . - msg_pedido_nao
+
+msg_pedestre_aberto: .ascii " ABERTO PARA O PEDESTRE"
+len_pedestre_aberto = . - msg_pedestre_aberto
+
+msg_pedestre_fechado: .ascii " FECHADO PARA PEDESTRE"
+len_pedestre_fechado = . - msg_pedestre_fechado
 
 msg_sufixo: .ascii "\n"
 len_sufixo = . - msg_sufixo
@@ -169,26 +186,49 @@ _start:
     and     x13, x13, #3             // nivel_fluxo lido (temporario)
     and     x22, x0, #15             // x22 = contagem lida (4 bits, segura entre chamadas)
 
+    cmp     x12, #3
+    b.eq    .Llabel_verde_pedido
     cmp     x12, #2
     b.eq    .Llabel_verde
     cmp     x12, #1
     b.eq    .Llabel_amarelo
     // fase=0: carro vermelho, pedestre VERDE (unico caso em que o
-    // pedestre pode atravessar)
+    // pedestre pode atravessar) -- pedido ja foi feito (e' o que abriu
+    // essa fase), so' e' limpo no instante de sair dela
     adrp    x23, msg_carro_vermelho
     add     x23, x23, :lo12:msg_carro_vermelho
     mov     x24, #len_carro_vermelho
     adrp    x27, msg_pedestre_verde
     add     x27, x27, :lo12:msg_pedestre_verde
     mov     x28, #len_pedestre_verde
+    adrp    x20, msg_pedido_sim
+    add     x20, x20, :lo12:msg_pedido_sim
+    mov     x21, #len_pedido_sim
     b       .Ltrafego
-.Llabel_verde:
+.Llabel_verde_pedido:
+    // fase=3 (codigo especial): carro verde, mas ja tem pedido de
+    // pedestre pendente esperando o tempo minimo passar
     adrp    x23, msg_carro_verde
     add     x23, x23, :lo12:msg_carro_verde
     mov     x24, #len_carro_verde
     adrp    x27, msg_pedestre_vermelho
     add     x27, x27, :lo12:msg_pedestre_vermelho
     mov     x28, #len_pedestre_vermelho
+    adrp    x20, msg_pedido_sim
+    add     x20, x20, :lo12:msg_pedido_sim
+    mov     x21, #len_pedido_sim
+    b       .Ltrafego
+.Llabel_verde:
+    // fase=2: carro verde, ninguem apertou o botao ainda
+    adrp    x23, msg_carro_verde
+    add     x23, x23, :lo12:msg_carro_verde
+    mov     x24, #len_carro_verde
+    adrp    x27, msg_pedestre_vermelho
+    add     x27, x27, :lo12:msg_pedestre_vermelho
+    mov     x28, #len_pedestre_vermelho
+    adrp    x20, msg_pedido_nao
+    add     x20, x20, :lo12:msg_pedido_nao
+    mov     x21, #len_pedido_nao
     b       .Ltrafego
 .Llabel_amarelo:
     adrp    x23, msg_carro_amarelo
@@ -197,6 +237,9 @@ _start:
     adrp    x27, msg_pedestre_vermelho
     add     x27, x27, :lo12:msg_pedestre_vermelho
     mov     x28, #len_pedestre_vermelho
+    adrp    x20, msg_pedido_sim
+    add     x20, x20, :lo12:msg_pedido_sim
+    mov     x21, #len_pedido_sim
 
 .Ltrafego:
     cmp     x13, #2
@@ -246,6 +289,11 @@ _start:
     mov     x0, #1
     bl      escreve_fd
 
+    mov     x1, x20                  // "PEDIDO_PEDESTRE=<sim/nao> "
+    mov     x2, x21
+    mov     x0, #1
+    bl      escreve_fd
+
     mov     x1, x25                  // "trafego=<nivel> "
     mov     x2, x26
     mov     x0, #1
@@ -264,6 +312,23 @@ _start:
     mov     x2, x0
     adrp    x1, numbuf
     add     x1, x1, :lo12:numbuf
+    mov     x0, #1
+    bl      escreve_fd
+
+    // texto extra: se a contagem ja chegou em 0, o sinal do pedestre ja
+    // esta aberto de verdade (x22 sobrevive intacto desde a decodificacao
+    // do byte, nenhuma chamada acima mexeu nele)
+    cmp     x22, #0
+    b.ne    .Lfechado
+    adrp    x1, msg_pedestre_aberto
+    add     x1, x1, :lo12:msg_pedestre_aberto
+    mov     x2, #len_pedestre_aberto
+    b       .Limprime_aberto_fechado
+.Lfechado:
+    adrp    x1, msg_pedestre_fechado
+    add     x1, x1, :lo12:msg_pedestre_fechado
+    mov     x2, #len_pedestre_fechado
+.Limprime_aberto_fechado:
     mov     x0, #1
     bl      escreve_fd
 

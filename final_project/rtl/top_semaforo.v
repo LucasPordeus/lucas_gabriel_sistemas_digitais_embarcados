@@ -242,9 +242,21 @@ module top_semaforo #(
     assign led_ped_vermelho = ~verde_pedestre;
 
     // ---- protocolo serial final ----
-    // Telemetria (formato atualizado, pra incluir o nivel de trafego):
-    //   [7:6] = fase da FSM (estado_carro) -- 00=pedestre verde/carro
-    //           vermelho, 01=carro amarelo, 10=carro verde
+    // fase_telemetria: o campo "fase" so' usa 3 dos 4 valores possiveis
+    // (00/01/10); aproveitamos o codigo livre (11) pra diferenciar, so'
+    // dentro de CARRO_VERDE, se ja existe um pedido de pedestre pendente
+    // (esperando o tempo minimo passar) ou nao -- sem gastar nenhum bit
+    // a mais no byte de telemetria. Nas outras fases (amarelo/pedestre-
+    // verde) um pedido SEMPRE esta pendente (e' o que fez a FSM sair do
+    // verde), entao nao precisa de codigo especial ali.
+    wire [1:0] fase_telemetria = (estado_carro == 2'b10 && solicitacao_pedestre)
+                                  ? 2'b11 : estado_carro;
+
+    // Telemetria (formato atualizado, pra incluir o nivel de trafego e o
+    // pedido de pedestre pendente):
+    //   [7:6] = fase_telemetria -- 00=pedestre verde/carro vermelho,
+    //           01=carro amarelo, 10=carro verde SEM pedido pendente,
+    //           11=carro verde COM pedido pendente
     //   [5:4] = nivel_fluxo (00=baixo 01=medio 10=alto)
     //   [3:0] = tempo_ate_pedestre, TRUNCADO para 4 bits (0-15) -- quanto
     //           falta de verdade pro pedestre poder atravessar (nao so' o
@@ -253,11 +265,13 @@ module top_semaforo #(
     // pode passar de 15 e truncar -- e' so' uma limitacao de EXIBICAO no
     // monitor da Raspberry Pi, a FSM interna da FPGA conta certo por
     // dentro, sem nenhum truncamento -- e' so' o byte de telemetria que
-    // satura essa faixa.
+    // satura essa faixa. Os LEDs (estado_basico_decoder) continuam usando
+    // "estado_carro" puro, nao "fase_telemetria" -- essa distincao e' so'
+    // pra informar a Raspberry Pi, nao afeta o semaforo fisico.
     protocolo_serial u_protocolo (
         .clk(clk), .rst_n(rst_n),
         .sclk(sclk), .cs_n(cs_n), .mosi(mosi),
-        .fase_carro_atual(estado_carro),
+        .fase_carro_atual(fase_telemetria),
         .contagem_regressiva({nivel_fluxo, tempo_ate_pedestre[3:0]}),
         .miso(miso), .busy(busy),
         .comando_recebido(comando_recebido), .comando_valido(comando_valido)
