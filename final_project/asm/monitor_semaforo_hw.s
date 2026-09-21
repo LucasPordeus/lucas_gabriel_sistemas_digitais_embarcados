@@ -6,10 +6,10 @@
 // realmente devolveu.
 //
 // Pinagem usada (numeracao BCM, pinos fisicos do conector de 40 vias):
-//   SCLK -> GPIO5  (pino fisico 29)
+//   SCLK -> GPIO11 (pino fisico 23)
 //   CS_N -> GPIO6  (pino fisico 31)
-//   MOSI -> GPIO13 (pino fisico 33)
-//   MISO -> GPIO19 (pino fisico 35)
+//   MOSI -> GPIO10 (pino fisico 19)
+//   MISO -> GPIO20 (pino fisico 38)
 //   (nao usamos "busy" aqui -- ver aviso em protocolo_serial_gpio.s sobre
 //   por que o pulso de 1 ciclo de "busy" nao e' confiavel de ler via
 //   polling em software)
@@ -56,16 +56,16 @@
     .align 3
 tempo_decorrido: .word 0
 
-PINO_SCLK    = 5
+PINO_SCLK    = 11
 PINO_CS_N    = 6
-PINO_MOSI    = 13
-PINO_MISO    = 19
+PINO_MOSI    = 10
+PINO_MISO    = 20
 CMD_KEEPALIVE = 0x0A      // OP_TEMPO_MIN(00) | valor=10 (reafirma o padrao, inocuo)
 
 msg_titulo: .ascii "=== Monitor REAL do semaforo (GPIO bit-banged, Raspberry Pi <-> Tang Nano 4K) ===\n"
 len_titulo = . - msg_titulo
 
-msg_pinagem: .ascii "Pinos (BCM): SCLK=GPIO5 CS_N=GPIO6 MOSI=GPIO13 MISO=GPIO19 -- confira a ligacao antes de continuar! (Ctrl+C para encerrar)\n"
+msg_pinagem: .ascii "Pinos (BCM): SCLK=GPIO11 CS_N=GPIO6 MOSI=GPIO10 MISO=GPIO20 -- confira a ligacao antes de continuar! (Ctrl+C para encerrar)\n"
 len_pinagem = . - msg_pinagem
 
 msg_prefixo_t: .ascii "[t="

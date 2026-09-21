@@ -75,10 +75,10 @@ Usado só para o link serial com a FPGA (numeração BCM, pino físico do conect
 
 | Sinal | GPIO (BCM) | Pino físico |
 |---|---|---|
-| `sclk` | GPIO5 | 29 |
+| `sclk` | GPIO11 | 23 |
 | `cs_n` | GPIO6 | 31 |
-| `mosi` | GPIO13 | 33 |
-| `miso` | GPIO19 | 35 |
+| `mosi` | GPIO10 | 19 |
+| `miso` | GPIO20 | 38 |
 | GND | — | 39 |
 
 Esses 4 pinos + GND são exatamente os usados por `asm/monitor_semaforo_hw.s` / `asm/lib/protocolo_serial_gpio.s`. O sensor IR e o botão **não** vão na Raspberry Pi — eles ligam direto na FPGA (é ela quem lê e decide tudo, por design do projeto).
@@ -156,18 +156,18 @@ Só depois do checkpoint acima. Com as duas placas **desligadas da USB**, ligue:
 
 | Da Raspberry Pi (pino físico) | Para a Tang Nano 4K (pino do chip) | Sinal |
 |---|---|---|
-| 29 (GPIO5) | 39 | `sclk` |
+| 23 (GPIO11) | 39 | `sclk` |
 | 31 (GPIO6) | 40 | `cs_n` |
-| 33 (GPIO13) | 41 | `mosi` |
-| 35 (GPIO19) | 42 | `miso` |
+| 19 (GPIO10) | 41 | `mosi` |
+| 38 (GPIO20) | 42 | `miso` |
 | 39 (GND) | qualquer pino GND da Tang Nano | GND comum |
 
 ```
 Raspberry Pi Zero 2W          Tang Nano 4K
-  GPIO5  (pino 29) ─────────── pino 39 (sclk)
+  GPIO11 (pino 23) ─────────── pino 39 (sclk)
   GPIO6  (pino 31) ─────────── pino 40 (cs_n)
-  GPIO13 (pino 33) ─────────── pino 41 (mosi)
-  GPIO19 (pino 35) ─────────── pino 42 (miso)
+  GPIO10 (pino 19) ─────────── pino 41 (mosi)
+  GPIO20 (pino 38) ─────────── pino 42 (miso)
   GND    (pino 39) ─────────── qualquer GND
 ```
 
