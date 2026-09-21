@@ -17,7 +17,14 @@
 GPSET0_OFF   = 0x1C
 GPCLR0_OFF   = 0x28
 GPLEV0_OFF   = 0x34
-ATRASO_ITER  = 200     // folga de sobra: a FPGA roda a 27 MHz (~37 ns/ciclo)
+// ATRASO_ITER: 200 (valor original) da' um SCLK na faixa de ~1-2 MHz num
+// Raspberry Pi Zero 2W -- folga de sobra pro CLOCK da FPGA (27 MHz, ~37
+// ns/ciclo), mas rapido o suficiente pra sofrer ringing/crosstalk em fios
+// soltos de protoboard (leituras de MISO instaveis, bits isolados
+// invertendo por ruido). Como so' fazemos 1 transferencia por segundo,
+// nao ha custo nenhum em deixar bem mais lento -- aumentado 100x (~10-20
+// kHz de SCLK) pra sair da faixa onde protoboard costuma dar problema.
+ATRASO_ITER  = 20000
 
 // ---- protocolo_serial_configura_pinos(x0=base,w1=sclk,w2=cs_n,w3=mosi,w4=miso) ----
 // Configura sclk/cs_n/mosi como saida e miso como entrada; deixa cs_n em
