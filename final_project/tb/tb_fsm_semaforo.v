@@ -1,98 +1,103 @@
-// Testbench da fsm_semaforo: percorre o ciclo completo CARRO_VERDE ->
-// CARRO_AMARELO -> PEDESTRE_VERDE -> CARRO_VERDE, confirmando a regra de
-// seguranca (sem solicitacao, permanece em verde) e o pulso de
-// limpa_solicitacao ao fim da fase de pedestre.
+// tb_fsm_semaforo: verifica a maquina de estados com tick a cada ciclo
+// (1 ciclo = 1 "segundo"):
+//   - estado inicial e permanencia em verde sem pedido;
+//   - pedido com o verde ja longo: o pedestre espera tempo_verde;
+//   - pedido logo no inicio do verde: a espera nao soma com o verde minimo;
+//   - duracao do amarelo e da travessia, e o pedido apagado no fim;
+//   - durante todo o teste, nunca pedestre verde com carro fora do vermelho.
 `timescale 1ns/1ps
 module tb_fsm_semaforo;
-    localparam W = 8;
-    reg clk, rst_n, solicitacao;
-    reg [W-1:0] t_verde, t_amarelo, t_pedestre;
-    wire [1:0] estado_carro;
-    wire verde_pedestre, limpa_solicitacao;
-    integer erros;
+    localparam integer T_VERDE    = 5;
+    localparam integer T_AMARELO  = 3;
+    localparam integer T_PEDESTRE = 4;
 
-    fsm_semaforo #(.LARGURA_TEMPO(W)) dut (
+    localparam [1:0] VERMELHO = 2'b00, AMARELO = 2'b01, VERDE = 2'b10;
+
+    reg        clk, rst_n;
+    reg        solicitacao;      // modela o latch do botao_pedestre
+    wire [1:0] cor_carro;
+    wire       pedestre_verde, limpa_solicitacao;
+    wire [5:0] contagem;
+    integer    erros, violacoes, ciclos;
+
+    fsm_semaforo #(.LARGURA_TEMPO(6)) dut (
         .clk(clk), .rst_n(rst_n), .tick(1'b1),
         .solicitacao_pedestre(solicitacao),
-        .tempo_min_verde(t_verde), .tempo_amarelo(t_amarelo), .tempo_pedestre(t_pedestre),
-        .estado_carro(estado_carro), .verde_pedestre(verde_pedestre),
-        .limpa_solicitacao(limpa_solicitacao)
+        .tempo_verde(T_VERDE[5:0]), .tempo_amarelo(T_AMARELO[5:0]), .tempo_pedestre(T_PEDESTRE[5:0]),
+        .cor_carro(cor_carro), .pedestre_verde(pedestre_verde),
+        .limpa_solicitacao(limpa_solicitacao), .contagem_atual(contagem)
     );
 
     always #5 clk = ~clk;
 
-    task espera_ciclos(input integer n);
+    // o pedido e' apagado pela FSM, como no botao_pedestre
+    always @(posedge clk) if (limpa_solicitacao) solicitacao <= 1'b0;
+
+    // invariante de seguranca, conferido em todo ciclo
+    always @(negedge clk)
+        if (rst_n && pedestre_verde && cor_carro !== VERMELHO) violacoes = violacoes + 1;
+
+    task espera(input integer n);
         integer i;
+        for (i = 0; i < n; i = i + 1) begin @(posedge clk); #1; end
+    endtask
+
+    // conta ciclos ate cor_carro mudar; termina na mudanca ou apos 200 ciclos
+    task mede_fase(output integer n);
+        reg [1:0] cor_inicial;
         begin
-            // #1 apos cada posedge garante que os registradores (NBA) e a
-            // logica combinacional ja se estabilizaram antes de checar
-            // qualquer sinal (evita corrida de simulacao com o proprio clock).
-            for (i = 0; i < n; i = i + 1) begin
-                @(posedge clk);
-                #1;
-            end
+            cor_inicial = cor_carro; n = 0;
+            while (cor_carro === cor_inicial && n < 200) begin espera(1); n = n + 1; end
         end
     endtask
 
+    task confere(input ok, input [8*64-1:0] descricao);
+        if (!ok) begin
+            erros = erros + 1;
+            $display("[FALHA] %0s (cor_carro=%b pedestre_verde=%b ciclos=%0d)",
+                     descricao, cor_carro, pedestre_verde, ciclos);
+        end else
+            $display("[OK]    %0s", descricao);
+    endtask
+
     initial begin
-        clk = 0; rst_n = 0; solicitacao = 0;
-        t_verde = 5; t_amarelo = 3; t_pedestre = 4; erros = 0;
-        $dumpfile("tb_fsm_semaforo.vcd");
+        $dumpfile("build/tb_fsm_semaforo.vcd");
         $dumpvars(0, tb_fsm_semaforo);
+        clk = 0; rst_n = 0; solicitacao = 0; erros = 0; violacoes = 0; ciclos = 0;
+        espera(2); rst_n = 1; espera(1);
 
-        espera_ciclos(2); rst_n = 1; espera_ciclos(1);
+        confere(cor_carro == VERDE && !pedestre_verde, "inicia com carros verdes e pedestre vermelho");
 
-        // Caso 1: logo apos reset, deve estar em CARRO_VERDE (10)
-        if (estado_carro !== 2'b10) begin
-            erros = erros + 1;
-            $display("[FALHA] estado inicial nao e CARRO_VERDE (estado_carro=%b)", estado_carro);
-        end else $display("[OK]    estado inicial = CARRO_VERDE");
+        espera(4 * T_VERDE);
+        confere(cor_carro == VERDE, "sem pedido, carros continuam verdes");
 
-        // Caso 2: sem solicitacao, mesmo apos o tempo minimo, permanece em verde (ONF-08)
-        espera_ciclos(t_verde + 3);
-        if (estado_carro !== 2'b10) begin
-            erros = erros + 1;
-            $display("[FALHA] sem solicitacao, saiu de CARRO_VERDE indevidamente");
-        end else $display("[OK]    sem solicitacao pendente, permanece em CARRO_VERDE (seguranca)");
-
-        // Caso 3: com solicitacao pendente e tempo minimo ja decorrido, deve ir para AMARELO
+        // pedido com o verde minimo ja cumprido: espera tempo_verde a partir do aperto
         solicitacao = 1;
-        espera_ciclos(1);
-        if (estado_carro !== 2'b01) begin
-            erros = erros + 1;
-            $display("[FALHA] nao transicionou para CARRO_AMARELO com solicitacao pendente (estado_carro=%b)", estado_carro);
-        end else $display("[OK]    transicionou para CARRO_AMARELO ao registrar solicitacao");
+        mede_fase(ciclos);
+        confere(cor_carro == AMARELO && ciclos >= T_VERDE && ciclos <= T_VERDE + 2,
+                "pedido tardio: carros ficam mais tempo_verde em verde");
 
-        // Caso 4: apos tempo_amarelo ciclos, deve ir para PEDESTRE_VERDE
-        // (+1 ciclo: o contador zera em t_amarelo ciclos, e a FSM so
-        // registra a transicao no ciclo seguinte, ao amostrar "zerou")
-        espera_ciclos(t_amarelo + 1);
-        if (estado_carro !== 2'b00 || verde_pedestre !== 1'b1) begin
-            erros = erros + 1;
-            $display("[FALHA] nao entrou em PEDESTRE_VERDE apos tempo_amarelo (estado_carro=%b verde_pedestre=%b)",
-                      estado_carro, verde_pedestre);
-        end else $display("[OK]    entrou em PEDESTRE_VERDE apos tempo_amarelo, com verde_pedestre=1");
+        mede_fase(ciclos);
+        confere(cor_carro == VERMELHO && pedestre_verde && ciclos >= T_AMARELO && ciclos <= T_AMARELO + 1,
+                "amarelo dura tempo_amarelo e abre para o pedestre");
 
-        // Caso 5: apos tempo_pedestre ciclos, deve limpar a solicitacao e voltar para CARRO_VERDE
-        // limpa_solicitacao e' combinacional e fica em 1 durante o ULTIMO
-        // ciclo de PEDESTRE_VERDE (quando tempo_esgotado ja e' 1 mas o
-        // estado registrado ainda nao mudou) -- por isso e' checado aqui,
-        // ANTES do ciclo extra que efetivamente latch a transicao.
-        espera_ciclos(t_pedestre);
-        if (limpa_solicitacao !== 1'b1) begin
-            erros = erros + 1;
-            $display("[FALHA] limpa_solicitacao nao foi pulsado ao fim de PEDESTRE_VERDE");
-        end else $display("[OK]    limpa_solicitacao pulsado corretamente");
-        espera_ciclos(1);
-        if (estado_carro !== 2'b10) begin
-            erros = erros + 1;
-            $display("[FALHA] nao retornou para CARRO_VERDE apos PEDESTRE_VERDE (estado_carro=%b)", estado_carro);
-        end else $display("[OK]    retornou para CARRO_VERDE, ciclo completo validado");
+        mede_fase(ciclos);
+        confere(cor_carro == VERDE && !pedestre_verde && ciclos >= T_PEDESTRE && ciclos <= T_PEDESTRE + 1,
+                "travessia dura tempo_pedestre e volta ao verde");
+        confere(solicitacao == 0, "pedido apagado ao fim da travessia");
 
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (5/5)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
+        // pedido 1 ciclo apos o inicio do verde: a espera e' tempo_verde a
+        // partir do aperto (+2 ciclos de latencia), e nao verde minimo + espera
+        espera(1); solicitacao = 1;
+        mede_fase(ciclos);
+        confere(cor_carro == AMARELO && ciclos >= T_VERDE && ciclos <= T_VERDE + 2,
+                "pedido no inicio do verde nao soma esperas");
+
+        espera(T_AMARELO + T_PEDESTRE + 4);
+        confere(violacoes == 0, "nunca pedestre verde com carro fora do vermelho");
+
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

@@ -1,164 +1,125 @@
-// monitor_semaforo_hw.s - AArch64 (GAS)
-// Versao simplificada: bit-banga de verdade os 5 pinos GPIO da Raspberry
-// Pi (usando protocolo_serial_gpio.s) e imprime SO' se o sinal do
-// pedestre esta aberto ou fechado agora, lendo a telemetria real
-// devolvida pela Tang Nano 4K.
+// monitor_semaforo.s - programa da Raspberry Pi Zero 2W (AArch64, sem libc).
+// Monitor somente leitura do semaforo: uma vez por segundo le um quadro de
+// telemetria da Tang Nano 4K pelo link serial e imprime o estado:
 //
-// Pinagem usada (numeracao BCM, pinos fisicos do conector de 40 vias):
-//   SCLK -> GPIO11 (pino fisico 23)
-//   CS_N -> GPIO6  (pino fisico 31)
-//   MOSI -> GPIO10 (pino fisico 19)
-//   MISO -> GPIO20 (pino fisico 38)
-// No lado da Tang Nano 4K, os pinos do protocolo serial estao fixados em
-// constraints/tangnano4k.cst: sclk=39 cs_n=40 mosi=41 miso=42 busy=43.
-// Ambas as placas trabalham em 3,3V, entao a ligacao e' direta, sem
-// conversor de nivel -- MAS LEMBRE-SE de ligar tambem o GND da Raspberry
-// Pi ao GND da Tang Nano 4K (referencia comum obrigatoria).
+//   [t=12s] carros=VERDE pedestres=VERMELHO restante=4s fluxo=BAIXO pedido=SIM
 //
-// A cada poll (1 por segundo, via nanosleep -- tempo real, nao simulado),
-// este programa envia o comando "OP_TEMPO_MIN=10" (0x0A): reafirma o
-// tempo minimo de verde padrao, ou seja, e' inocuo/idempotente -- so'
-// serve pra ter um byte valido pra clockar e receber a telemetria de
-// volta por miso.
+// t = segundos reais desde o inicio do programa (CLOCK_MONOTONIC).
+// Nada e' enviado para a FPGA: o semaforo funciona igual com ou sem este
+// programa. Roda ate Ctrl+C.
 //
-// So' usamos os 4 bits baixos do byte de telemetria (ver rtl/
-// top_semaforo.v): tempo_ate_pedestre, truncado para 4 bits (0-15) --
-// quando chega em 0, o sinal do pedestre ja esta aberto de verdade.
+// Ligacao (numeracao BCM / pino fisico do header de 40 vias -> pino da Tang Nano 4K):
+//   SCLK = GPIO11 / 23 -> 40     CS_N = GPIO6 / 31 -> 42
+//   MISO = GPIO20 / 38 <- 33     GND  = pino 39    -- GND da Tang Nano
 //
-// Roda PARA SEMPRE (Ctrl+C pra encerrar).
+// Saida do processo: 0 nunca (laco infinito); 1 se /dev/gpiomem nao abriu.
 
-.macro le_relogio reg_seg, reg_nseg
-    sub     sp, sp, #16
-    mov     x0, #1                  // CLOCK_MONOTONIC
-    mov     x1, sp
-    mov     x8, #113                // clock_gettime
-    svc     #0
-    ldr     \reg_seg,  [sp, #0]
-    ldr     \reg_nseg, [sp, #8]
-    add     sp, sp, #16
-.endm
+PINO_SCLK = 11
+PINO_CS_N = 6
+PINO_MISO = 20
 
     .data
-    .align 3
-tempo_decorrido: .word 0
-
-PINO_SCLK    = 11
-PINO_CS_N    = 6
-PINO_MOSI    = 10
-PINO_MISO    = 20
-CMD_KEEPALIVE = 0x0A      // OP_TEMPO_MIN(00) | valor=10 (reafirma o padrao, inocuo)
-
-msg_titulo: .ascii "=== Monitor REAL do sinal do pedestre (GPIO bit-banged, Raspberry Pi <-> Tang Nano 4K) ===\n"
+msg_titulo:  .ascii "=== Monitor do semaforo (telemetria da Tang Nano 4K, Ctrl+C encerra) ===\n"
 len_titulo = . - msg_titulo
+msg_erro_gpio: .ascii "ERRO: nao foi possivel mapear /dev/gpiomem (rode na Raspberry Pi com sudo)\n"
+len_erro_gpio = . - msg_erro_gpio
+txt_prefixo: .asciz "[t="
+txt_sufixo:  .asciz "s] "
 
-msg_pinagem: .ascii "Pinos (BCM): SCLK=GPIO11 CS_N=GPIO6 MOSI=GPIO10 MISO=GPIO20 -- confira a ligacao antes de continuar! (Ctrl+C para encerrar)\n"
-len_pinagem = . - msg_pinagem
-
-msg_prefixo_t: .ascii "[t="
-len_prefixo_t = . - msg_prefixo_t
-
-msg_sufixo_t: .ascii "s] "
-len_sufixo_t = . - msg_sufixo_t
-
-msg_pedestre_aberto: .ascii "ABERTO PARA O PEDESTRE\n"
-len_pedestre_aberto = . - msg_pedestre_aberto
-
-msg_pedestre_fechado: .ascii "FECHADO PARA PEDESTRE\n"
-len_pedestre_fechado = . - msg_pedestre_fechado
-
-numbuf: .space 20
+    .bss
+    .align 3
+linha: .space 192            // linha montada para impressao
+tempo: .space 16             // struct timespec usada por clock_gettime/nanosleep
 
     .text
     .global _start
+
+// le o relogio monotonico; deixa os segundos em \destino
+.macro segundos_monotonicos destino
+    mov     x0, #1                     // CLOCK_MONOTONIC
+    adrp    x1, tempo
+    add     x1, x1, :lo12:tempo
+    mov     x8, #113                   // clock_gettime
+    svc     #0
+    adrp    x1, tempo
+    ldr     \destino, [x1, :lo12:tempo]
+.endm
+
 _start:
+    mov     x0, #1
     adrp    x1, msg_titulo
     add     x1, x1, :lo12:msg_titulo
-    mov     x0, #1
     mov     x2, #len_titulo
     bl      escreve_fd
 
-    adrp    x1, msg_pinagem
-    add     x1, x1, :lo12:msg_pinagem
-    mov     x0, #1
-    mov     x2, #len_pinagem
-    bl      escreve_fd
-
-    bl      gpio_map_init            // x0 = base (real via /dev/gpiomem, ou simulada)
-    mov     x19, x0                  // x19 = base, preservado pelo resto do programa
+    bl      gpio_map_init
+    cbz     x0, .Lerro_gpio
+    mov     x19, x0                    // x19 = base dos registradores de GPIO
 
     mov     x0, x19
     mov     w1, #PINO_SCLK
     mov     w2, #PINO_CS_N
-    mov     w3, #PINO_MOSI
-    mov     w4, #PINO_MISO
+    mov     w3, #PINO_MISO
     bl      protocolo_serial_configura_pinos
 
-.Lpoll_loop:
+    segundos_monotonicos x20           // x20 = segundo de inicio
+
+    // uma leitura por volta; so' termina com Ctrl+C
+.Lmonitora:
     mov     x0, x19
     mov     w1, #PINO_SCLK
     mov     w2, #PINO_CS_N
-    mov     w3, #PINO_MOSI
-    mov     w4, #PINO_MISO
-    mov     w5, #CMD_KEEPALIVE
-    bl      protocolo_serial_transfere   // w0 = byte de telemetria real
+    mov     w3, #PINO_MISO
+    bl      protocolo_serial_le_quadro
+    mov     w21, w0                    // w21 = quadro recebido
 
-    and     x22, x0, #15             // x22 = tempo_ate_pedestre (4 bits, segura entre chamadas)
+    segundos_monotonicos x22
+    sub     x22, x22, x20              // x22 = segundos desde o inicio
 
-    adrp    x1, msg_prefixo_t
-    add     x1, x1, :lo12:msg_prefixo_t
-    mov     x0, #1
-    mov     x2, #len_prefixo_t
-    bl      escreve_fd
-
-    adrp    x9, tempo_decorrido
-    add     x9, x9, :lo12:tempo_decorrido
-    ldr     w0, [x9]
-    adrp    x1, numbuf
-    add     x1, x1, :lo12:numbuf
+    // monta "[t=<s>s] " + estado decodificado em "linha"
+    adrp    x23, linha
+    add     x23, x23, :lo12:linha      // x23 = posicao de escrita na linha
+    mov     x0, x23
+    adrp    x1, txt_prefixo
+    add     x1, x1, :lo12:txt_prefixo
+    bl      str_copia
+    mov     x23, x0
+    mov     x0, x22
+    mov     x1, x23
     bl      uint_to_dec
-    mov     x2, x0
-    adrp    x1, numbuf
-    add     x1, x1, :lo12:numbuf
+    add     x23, x23, x0
+    mov     x0, x23
+    adrp    x1, txt_sufixo
+    add     x1, x1, :lo12:txt_sufixo
+    bl      str_copia
+    mov     x23, x0
+    mov     w0, w21
+    mov     x1, x23
+    bl      telemetria_formata
+    add     x23, x23, x0
+
     mov     x0, #1
+    adrp    x1, linha
+    add     x1, x1, :lo12:linha
+    sub     x2, x23, x1
     bl      escreve_fd
 
-    adrp    x1, msg_sufixo_t
-    add     x1, x1, :lo12:msg_sufixo_t
-    mov     x0, #1
-    mov     x2, #len_sufixo_t
-    bl      escreve_fd
-
-    cmp     x22, #0
-    b.ne    .Lfechado
-    adrp    x1, msg_pedestre_aberto
-    add     x1, x1, :lo12:msg_pedestre_aberto
-    mov     x2, #len_pedestre_aberto
-    b       .Limprime
-.Lfechado:
-    adrp    x1, msg_pedestre_fechado
-    add     x1, x1, :lo12:msg_pedestre_fechado
-    mov     x2, #len_pedestre_fechado
-
-.Limprime:
-    mov     x0, #1
-    bl      escreve_fd
-
-    // dorme 1 segundo real antes do proximo poll
-    sub     sp, sp, #16
-    mov     x0, #1
-    str     x0, [sp, #0]
-    mov     x0, #0
-    str     x0, [sp, #8]
-    mov     x0, sp
+    // espera 1 segundo
+    adrp    x0, tempo
+    add     x0, x0, :lo12:tempo
+    mov     x1, #1
+    stp     x1, xzr, [x0]              // tv_sec = 1, tv_nsec = 0
     mov     x1, #0
-    mov     x8, #101                 // nanosleep
+    mov     x8, #101                   // nanosleep
     svc     #0
-    add     sp, sp, #16
+    b       .Lmonitora
 
-    adrp    x9, tempo_decorrido
-    add     x9, x9, :lo12:tempo_decorrido
-    ldr     w0, [x9]
-    add     w0, w0, #1
-    str     w0, [x9]
-
-    b       .Lpoll_loop              // roda para sempre -- Ctrl+C encerra
+.Lerro_gpio:
+    mov     x0, #2
+    adrp    x1, msg_erro_gpio
+    add     x1, x1, :lo12:msg_erro_gpio
+    mov     x2, #len_erro_gpio
+    bl      escreve_fd
+    mov     x0, #1
+    mov     x8, #93                    // exit(1)
+    svc     #0

@@ -1,0 +1,57 @@
+$date
+	Tue Oct  6 20:22:25 2026
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module tb_estado_basico_decoder $end
+$var wire 1 ! led_vermelho $end
+$var wire 1 " led_verde $end
+$var wire 1 # led_amarelo $end
+$var reg 2 $ cor_carro [1:0] $end
+$var integer 32 % erros [31:0] $end
+$var integer 32 & i [31:0] $end
+$scope module dut $end
+$var wire 2 ' cor_carro [1:0] $end
+$var wire 1 ! led_vermelho $end
+$var wire 1 " led_verde $end
+$var wire 1 # led_amarelo $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+$end
+#0
+$dumpvars
+b0 '
+b0 &
+b0 %
+b0 $
+0#
+0"
+1!
+$end
+#1000
+0!
+1#
+b1 $
+b1 '
+b1 &
+#2000
+0#
+1"
+b10 $
+b10 '
+b10 &
+#3000
+1!
+0"
+b11 $
+b11 '
+b11 &
+#4000
+b100 &

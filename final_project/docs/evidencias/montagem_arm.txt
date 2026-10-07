@@ -1,0 +1,17 @@
+# make asm (cross: aarch64-linux-gnu-as/ld com --fatal-warnings) + execucao em qemu-aarch64 sem /dev/gpiomem
+aarch64-linux-gnu-as --fatal-warnings -g -o build/monitor_semaforo.o asm/monitor_semaforo.s
+aarch64-linux-gnu-as --fatal-warnings -g -o build/lib/gpio_lib.o asm/lib/gpio_lib.s
+aarch64-linux-gnu-as --fatal-warnings -g -o build/lib/strings_lib.o asm/lib/strings_lib.s
+aarch64-linux-gnu-as --fatal-warnings -g -o build/lib/protocolo_serial_gpio.o asm/lib/protocolo_serial_gpio.s
+aarch64-linux-gnu-as --fatal-warnings -g -o build/lib/telemetria.o asm/lib/telemetria.s
+aarch64-linux-gnu-ar rcs build/lib/libembarcado.a build/lib/gpio_lib.o build/lib/strings_lib.o build/lib/protocolo_serial_gpio.o build/lib/telemetria.o
+aarch64-linux-gnu-ld --fatal-warnings -o build/monitor_semaforo build/monitor_semaforo.o build/lib/libembarcado.a
+$ qemu-aarch64 build/monitor_semaforo
+=== Monitor do semaforo (telemetria da Tang Nano 4K, Ctrl+C encerra) ===
+ERRO: nao foi possivel mapear /dev/gpiomem (rode na Raspberry Pi com sudo)
+codigo de saida: 1
+
+# teste do decodificador (telemetria_formata) nos 65536 quadros possiveis contra referencia em Python:
+linhas 65536, divergencias 0, quadros validos 1536
+# teste do driver protocolo_serial_le_quadro com GPIO falsa imitando rtl/protocolo_serial.v:
+6/6 quadros recebidos corretamente, 16 bordas de sclk por quadro

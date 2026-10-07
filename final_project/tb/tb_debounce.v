@@ -1,73 +1,54 @@
-// Testbench do debounce: aplica ruido (varias transicoes rapidas) e depois
-// um nivel estavel, conferindo que out_stable so acompanha a entrada apos
-// N_CYCLES ciclos consecutivos sem transicao.
+// tb_debounce: verifica que repiques curtos sao ignorados e que um nivel
+// estavel por N_CICLOS ciclos chega a saida (nos dois sentidos).
 `timescale 1ns/1ps
-
 module tb_debounce;
-    localparam N = 4;
-    reg clk, rst_n, in_raw;
-    wire out_stable;
-    integer erros;
+    localparam integer N = 4;   // ciclos de estabilidade usados no teste
 
-    debounce #(.N_CYCLES(N)) dut (
-        .clk(clk), .rst_n(rst_n), .in_raw(in_raw), .out_stable(out_stable)
-    );
+    reg  clk, rst_n, entrada;
+    wire saida;
+    integer erros;              // casos que falharam
 
-    always #5 clk = ~clk; // periodo de 10ns
+    debounce #(.N_CICLOS(N)) dut (.clk(clk), .rst_n(rst_n), .entrada(entrada), .saida(saida));
 
-    task espera_ciclos(input integer n);
+    always #5 clk = ~clk;
+
+    // espera n bordas de subida de clk (e 1 ns para os registradores assentarem)
+    task espera(input integer n);
         integer i;
-        begin
-            for (i = 0; i < n; i = i + 1) @(posedge clk);
-        end
+        for (i = 0; i < n; i = i + 1) begin @(posedge clk); #1; end
+    endtask
+
+    task confere(input esperado, input [8*48-1:0] descricao);
+        if (saida !== esperado) begin
+            erros = erros + 1;
+            $display("[FALHA] %0s (saida=%b)", descricao, saida);
+        end else
+            $display("[OK]    %0s", descricao);
     endtask
 
     initial begin
-        clk = 0; rst_n = 0; in_raw = 0; erros = 0;
-        $dumpfile("tb_debounce.vcd");
+        $dumpfile("build/tb_debounce.vcd");
         $dumpvars(0, tb_debounce);
+        clk = 0; rst_n = 0; entrada = 0; erros = 0;
+        espera(2); rst_n = 1; espera(2);
 
-        espera_ciclos(2);
-        rst_n = 1;
-        espera_ciclos(2);
+        // repique: alterna a cada ciclo, nunca fica estavel N ciclos
+        entrada = 1; espera(1); entrada = 0; espera(1);
+        entrada = 1; espera(2); entrada = 0; espera(1);
+        espera(N + 3);
+        confere(1'b0, "repique ignorado");
 
-        // Caso 1: ruido de "bouncing" -- varias transicoes rapidas, nao deve estabilizar
-        in_raw = 1; espera_ciclos(1);
-        in_raw = 0; espera_ciclos(1);
-        in_raw = 1; espera_ciclos(1);
-        in_raw = 0; espera_ciclos(1);
-        if (out_stable !== 1'b0) begin
-            erros = erros + 1;
-            $display("[FALHA] ruido de bouncing produziu out_stable=1 antes da hora");
-        end else begin
-            $display("[OK]    ruido de bouncing ignorado (out_stable ainda em 0)");
-        end
+        // nivel estavel: chega a saida apos 2 (sincronizador) + N ciclos
+        entrada = 1; espera(N + 1);
+        confere(1'b0, "saida ainda nao muda antes de N + 2 ciclos");
+        espera(2);
+        confere(1'b1, "nivel 1 estavel chega a saida");
 
-        // Caso 2: nivel estavel por N_CYCLES -> deve propagar para out_stable
-        in_raw = 1;
-        espera_ciclos(N + 1);
-        if (out_stable !== 1'b1) begin
-            erros = erros + 1;
-            $display("[FALHA] nivel estavel em 1 nao propagou para out_stable");
-        end else begin
-            $display("[OK]    nivel estavel em 1 propagou para out_stable apos %0d ciclos", N);
-        end
+        entrada = 0; espera(N + 3);
+        confere(1'b0, "nivel 0 estavel chega a saida");
 
-        // Caso 3: volta a 0 e permanece estavel -> out_stable deve acompanhar
-        in_raw = 0;
-        espera_ciclos(N + 1);
-        if (out_stable !== 1'b0) begin
-            erros = erros + 1;
-            $display("[FALHA] nivel estavel em 0 nao propagou para out_stable");
-        end else begin
-            $display("[OK]    nivel estavel em 0 propagou para out_stable apos %0d ciclos", N);
-        end
-
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (3/3)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
-
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

@@ -1,267 +1,153 @@
+// tb_top_semaforo: teste de integracao do sistema completo, acionando so'
+// os pinos reais (botao, sensor, sclk/cs_n) e observando LEDs e miso.
+// Tempos reduzidos: 1 "segundo" = 40 ciclos de clk.
+//   1. estado inicial e quadro de telemetria lido pelo link serial;
+//   2. fluxo baixo: tempo do aperto ate o amarelo ~ TEMPO_VERDE_BAIXO;
+//   3. telemetria durante a travessia (carro vermelho, pedestre verde);
+//   4. fluxo alto (veiculos reais no sensor): espera ~ TEMPO_VERDE_ALTO;
+//   5. durante todo o teste: LEDs coerentes e nunca pedestre verde sem
+//      carro vermelho; todo quadro lido tem o marcador 1010 e bate com a FSM.
 `timescale 1ns/1ps
-// tb_top_semaforo: testbench de integracao completa. Cada caso reseta o
-// DUT para ficar deterministico. Casos 4/5 comparam o tempo ate o
-// pedestre ser liberado sob trafego baixo vs alto (apos burst real de
-// veiculos). Caso 6 le a telemetria de verdade via miso/sclk (fase,
-// nivel_fluxo, contagem) em vez de so' inspecionar sinais internos.
 module tb_top_semaforo;
-    reg clk, rst_n, sensor_raw, botao_raw;
-    reg sclk, cs_n, mosi;
-    wire led_vermelho, led_amarelo, led_verde, led_ped_verde, led_ped_vermelho;
-    wire miso, busy;
-    integer erros;
-    integer ciclos_baixo, ciclos_alto;
-    reg [7:0] telemetria_lida;
-    reg [1:0] fase_esperada;
-    reg [7:0] contagem_esperada;
+    localparam integer CICLOS_SEG = 40;
+    localparam integer T_BAIXO = 5, T_ALTO = 20, T_AMARELO = 3, T_PEDESTRE = 15;
 
-    // JANELA_AMOSTRAGEM=200 e DIVISOR_TICK=1: tick a cada ciclo de clock,
-    // preservando a contagem em "ciclos" (o valor real de hardware,
-    // 27_000_000, so' e' usado na sintese fisica -- ver rtl/prescaler.v).
-    top_semaforo #(.JANELA_AMOSTRAGEM(200), .DIVISOR_TICK(1)) dut (
-        .clk(clk), .rst_n(rst_n),
-        .sensor_raw(sensor_raw), .botao_raw(botao_raw),
+    reg  clk, rst_n, botao_raw, sensor_raw, sclk, cs_n;
+    wire led_vermelho, led_amarelo, led_verde, led_ped_verde, led_ped_vermelho, miso;
+
+    reg  [15:0] quadro;          // ultimo quadro lido pelo link serial
+    reg  [15:0] quadro_ref;      // quadro esperado, montado dos sinais internos ao descer cs_n
+    integer     erros, violacoes, segundos_baixo, segundos_alto;
+
+    top_semaforo #(
+        .DIVISOR_TICK(CICLOS_SEG), .DEBOUNCE_BOTAO(4), .DEBOUNCE_SENSOR(2), .JANELA_AMOSTRAGEM(3)
+    ) dut (
+        .clk(clk), .rst_n(rst_n), .botao_raw(botao_raw), .sensor_raw(sensor_raw),
         .led_vermelho(led_vermelho), .led_amarelo(led_amarelo), .led_verde(led_verde),
         .led_ped_verde(led_ped_verde), .led_ped_vermelho(led_ped_vermelho),
-        .sclk(sclk), .cs_n(cs_n), .mosi(mosi), .miso(miso), .busy(busy)
+        .sclk(sclk), .cs_n(cs_n), .miso(miso)
     );
 
     always #5 clk = ~clk;
 
-    task espera_clk(input integer n);
-        integer j;
-        begin
-            for (j = 0; j < n; j = j + 1) begin
-                @(posedge clk);
-                #1;
-            end
+    // invariantes dos LEDs, conferidas em todo ciclo apos o reset
+    always @(negedge clk)
+        if (rst_n && dut.rst_sist_n) begin
+            if (led_vermelho + led_amarelo + led_verde != 1) violacoes = violacoes + 1;
+            if (led_ped_verde == led_ped_vermelho)           violacoes = violacoes + 1;
+            if (led_ped_verde && !led_vermelho)              violacoes = violacoes + 1;
+        end
+
+    task espera(input integer n);
+        integer i;
+        for (i = 0; i < n; i = i + 1) begin @(posedge clk); #1; end
+    endtask
+
+    task aperta_botao;
+        begin botao_raw = 0; espera(20); botao_raw = 1; espera(20); end
+    endtask
+
+    // n veiculos passando pelo sensor (ativo em 0), 5 ciclos cada nivel
+    task passa_veiculos(input integer n);
+        integer v;
+        for (v = 0; v < n; v = v + 1) begin
+            sensor_raw = 0; espera(5); sensor_raw = 1; espera(5);
         end
     endtask
 
-    task reseta_dut;
-        begin
-            // sensor_raw/botao_raw sao ativos em nivel BAIXO (hardware
-            // real, invertidos dentro de top_semaforo.v) -- repouso = 1
-            rst_n = 0; sensor_raw = 1; botao_raw = 1;
-            sclk = 0; cs_n = 1; mosi = 0;
-            espera_clk(2);
-            rst_n = 1;
-            espera_clk(2);
-        end
-    endtask
-
-    task pulso_sclk(input valor_mosi);
-        begin
-            mosi = valor_mosi;
-            espera_clk(2);
-            sclk = 1'b1;
-            espera_clk(2);
-            sclk = 1'b0;
-            espera_clk(2);
-        end
-    endtask
-
-    task envia_comando_serial(input [7:0] byte_cmd);
-        integer k;
+    // le um quadro como a Raspberry Pi: miso antes de cada subida de sclk
+    task le_quadro;
+        integer b;
         begin
             cs_n = 0;
-            espera_clk(2);
-            for (k = 7; k >= 0; k = k - 1)
-                pulso_sclk(byte_cmd[k]);
-            espera_clk(1);
-            cs_n = 1;
-            espera_clk(2);
-        end
-    endtask
-
-    // Le o byte de telemetria via miso com 7 pulsos de sclk (o MSB ja
-    // fica disponivel assim que cs_n desce). Como comando_valido so'
-    // pulsa apos o 8o bit, esta leitura nunca aplica um comando (no-op
-    // sobre a configuracao). "esperado_*" usa as mesmas formulas de
-    // fase_telemetria/tempo_ate_pedestre de top_semaforo.v, congeladas no
-    // instante em que cs_n desce (mesmo instante do snapshot real feito
-    // por protocolo_serial).
-    task le_telemetria_serial(output [7:0] byte_lido, output [1:0] esperado_fase,
-                               output [7:0] esperado_contagem);
-        integer k;
-        begin
-            cs_n = 0;
-            if (dut.estado_carro == 2'b10 && dut.solicitacao_pedestre)
-                esperado_fase = 2'b11;
-            else
-                esperado_fase = dut.estado_carro;
-            case (dut.estado_carro)
-                2'b10:   esperado_contagem = dut.u_fsm.contagem_atual + {2'b00, dut.tempo_amarelo_reg};
-                2'b01:   esperado_contagem = dut.u_fsm.contagem_atual;
-                default: esperado_contagem = 8'd0;
-            endcase
-            espera_clk(2);
-            byte_lido[7]     = miso;
-            for (k = 6; k >= 0; k = k - 1) begin
-                pulso_sclk(1'b0);
-                byte_lido[k] = miso;
+            quadro_ref = dut.quadro_telemetria;
+            espera(6);
+            for (b = 15; b >= 0; b = b - 1) begin
+                quadro[b] = miso;
+                sclk = 1; espera(6);
+                sclk = 0; espera(6);
             end
-            cs_n = 1;
-            espera_clk(2);
-        end
-    endtask
-
-    // gera N veiculos reais (sensor_raw sobe/desce, respeitando o
-    // debounce de 8 ciclos), construindo trafego real em vez de forcar
-    // sinais internos.
-    task gera_veiculos(input integer n);
-        integer m;
-        begin
-            for (m = 0; m < n; m = m + 1) begin
-                sensor_raw = 0; espera_clk(10); // "passa" (ativo em baixo)
-                sensor_raw = 1; espera_clk(10); // repouso
+            cs_n = 1; espera(6);
+            // a contagem pode ter mudado 1 segundo entre a foto e o congelamento
+            if (quadro[15:12] !== 4'b1010 || quadro[15:6] !== quadro_ref[15:6] ||
+                (quadro[5:0] !== quadro_ref[5:0] && quadro[5:0] + 6'd1 !== quadro_ref[5:0])) begin
+                erros = erros + 1;
+                $display("[FALHA] quadro lido %b, esperado %b", quadro, quadro_ref);
             end
         end
     endtask
 
-    // conta ciclos ate estado_carro virar amarelo, com timeout de
-    // seguranca contra travamento da simulacao
-    task aguarda_amarelo(output integer ciclos);
-        integer timeout;
+    // segundos do aperto do botao ate o amarelo; termina no amarelo ou apos 60 s
+    task mede_espera_pedestre(output integer segundos);
+        integer c;
         begin
-            ciclos = 0;
-            timeout = 0;
-            while (dut.estado_carro !== 2'b01 && timeout < 500) begin
-                @(posedge clk); #1;
-                ciclos = ciclos + 1;
-                timeout = timeout + 1;
-            end
+            aperta_botao;
+            c = 40;
+            while (!led_amarelo && c < 60 * CICLOS_SEG) begin espera(1); c = c + 1; end
+            segundos = c / CICLOS_SEG;
         end
+    endtask
+
+    task confere(input ok, input [8*64-1:0] descricao);
+        if (!ok) begin
+            erros = erros + 1;
+            $display("[FALHA] %0s (quadro=%b)", descricao, quadro);
+        end else
+            $display("[OK]    %0s", descricao);
     endtask
 
     initial begin
-        clk = 0; erros = 0;
-        $dumpfile("tb_top_semaforo.vcd");
+        $dumpfile("build/tb_top_semaforo.vcd");
         $dumpvars(0, tb_top_semaforo);
+        clk = 0; rst_n = 0; botao_raw = 1; sensor_raw = 1; sclk = 0; cs_n = 1;
+        erros = 0; violacoes = 0;
+        espera(3); rst_n = 1; espera(5);
 
-        // ---- Caso 1: estado inicial seguro + tempo de verde padrao ----
-        reseta_dut;
-        if (led_verde !== 1'b1 || led_ped_vermelho !== 1'b1) begin
-            erros = erros + 1;
-            $display("[FALHA] estado inicial incorreto (led_verde=%b led_ped_vermelho=%b)",
-                      led_verde, led_ped_vermelho);
-        end else $display("[OK]    estado inicial seguro: veiculos=VERDE, pedestre=VERMELHO");
+        // 1. estado inicial
+        le_quadro;
+        confere(led_verde && led_ped_vermelho, "inicio: carros verdes, pedestre vermelho");
+        confere(quadro[11:10] == 2'b10 && quadro[9] == 0 && quadro[8] == 0 && quadro[7:6] == 2'b00,
+                "telemetria inicial: VERDE / VERMELHO / sem pedido / fluxo baixo");
 
-        if (dut.nivel_fluxo !== 2'b00) begin
-            erros = erros + 1;
-            $display("[FALHA] nivel_fluxo=%b, esperado 00 (baixo) logo apos reset", dut.nivel_fluxo);
-        end else $display("[OK]    nivel_fluxo=BAIXO por padrao (nenhum veiculo ainda)");
+        // 2. fluxo baixo; espera o verde minimo do reset passar antes do aperto
+        espera((T_BAIXO + 2) * CICLOS_SEG);
+        mede_espera_pedestre(segundos_baixo);
+        $display("[INFO]  fluxo baixo: %0d s do aperto ao amarelo", segundos_baixo);
+        confere(segundos_baixo >= T_BAIXO - 1 && segundos_baixo <= T_BAIXO + 1,
+                "fluxo baixo: pedestre espera ~TEMPO_VERDE_BAIXO");
 
-        if (dut.tempo_min_efetivo !== 8'd5) begin
-            erros = erros + 1;
-            $display("[FALHA] tempo_min_efetivo=%0d, esperado 5 (metade do padrao 10, trafego baixo)",
-                      dut.tempo_min_efetivo);
-        end else $display("[OK]    tempo_min_efetivo=5 (metade do padrao, trafego baixo -> pedestre liberado mais rapido)");
+        // 3. telemetria durante amarelo e travessia
+        le_quadro;
+        confere(quadro[11:10] == 2'b01 && quadro[9] == 0 && quadro[8] == 1,
+                "telemetria no amarelo: AMARELO / VERMELHO / pedido pendente");
+        espera((T_AMARELO + 1) * CICLOS_SEG);
+        le_quadro;
+        confere(led_ped_verde && quadro[11:10] == 2'b00 && quadro[9] == 1,
+                "telemetria na travessia: VERMELHO / pedestre VERDE");
+        espera((T_PEDESTRE + 1) * CICLOS_SEG);
+        le_quadro;
+        confere(led_verde && quadro[11:10] == 2'b10 && quadro[8] == 0,
+                "volta ao verde com o pedido apagado");
 
-        // ---- Caso 2: configura tempo_min_reg=3 e tempo_amarelo=2 via protocolo serial ----
-        reseta_dut;
-        envia_comando_serial(8'b00_000011); // opcode=00 (OP_TEMPO_MIN), valor=3
-        if (dut.tempo_min_reg !== 6'd3) begin
-            erros = erros + 1;
-            $display("[FALHA] tempo_min_reg=%0d, esperado 3 apos comando serial", dut.tempo_min_reg);
-        end else $display("[OK]    tempo_min_reg atualizado para 3 via protocolo serial");
+        // 4. fluxo alto: 12 veiculos por janela de 3 s, por 6 janelas
+        passa_veiculos(72);
+        le_quadro;
+        confere(quadro[7:6] == 2'b10, "sensor real eleva o fluxo para ALTO");
+        mede_espera_pedestre(segundos_alto);
+        $display("[INFO]  fluxo alto: %0d s do aperto ao amarelo", segundos_alto);
+        confere(segundos_alto >= T_ALTO - 1 && segundos_alto <= T_ALTO + 1,
+                "fluxo alto: pedestre espera ~TEMPO_VERDE_ALTO");
+        confere(segundos_alto > segundos_baixo, "fluxo alto atrasa o pedestre mais que fluxo baixo");
 
-        envia_comando_serial(8'b01_000010); // opcode=01 (OP_TEMPO_AMARELO), valor=2
-        if (dut.tempo_amarelo_reg !== 6'd2) begin
-            erros = erros + 1;
-            $display("[FALHA] tempo_amarelo_reg=%0d, esperado 2 apos comando serial", dut.tempo_amarelo_reg);
-        end else $display("[OK]    tempo_amarelo_reg atualizado para 2 via protocolo serial");
+        // 5. sem veiculos, o fluxo volta a baixo depois de 5 janelas
+        espera((T_AMARELO + T_PEDESTRE + 6 * 3) * CICLOS_SEG);
+        le_quadro;
+        confere(quadro[7:6] == 2'b00, "sem veiculos o fluxo volta a BAIXO");
 
-        // ---- Caso 3: gera 3 veiculos e confirma a contagem na BRAM ----
-        reseta_dut;
-        gera_veiculos(3);
-        if (dut.ponteiro_escrita_w !== 8'd3) begin
-            erros = erros + 1;
-            $display("[FALHA] ponteiro_escrita_w=%0d, esperado 3 (3 veiculos contados)", dut.ponteiro_escrita_w);
-        end else $display("[OK]    3 veiculos contados corretamente (ponteiro_escrita_w=3)");
+        confere(violacoes == 0, "LEDs sempre coerentes e seguros");
 
-        // ---- Caso 4: trafego BAIXO -> mede o tempo ate o pedestre ser liberado ----
-        reseta_dut;
-        botao_raw = 0; // pressionado (ativo em baixo)
-        aguarda_amarelo(ciclos_baixo);
-        botao_raw = 1; // solto
-        $display("[INFO]  trafego BAIXO: %0d ciclos ate o inicio do amarelo (tempo_min_efetivo=5)", ciclos_baixo);
-        espera_clk(2 + 15 + 5); // deixa o ciclo terminar antes do proximo caso
-
-        // ---- Caso 5: trafego ALTO (burst de 50 veiculos em ~5 janelas de
-        // amostragem) -> mede o mesmo tempo e compara com o caso 4.
-        // fsm_semaforo so' recarrega o contador ao ENTRAR numa fase nova,
-        // entao um burst gerado logo apos o reset so' afeta o tempo da
-        // fase seguinte, nao a que ja estava carregada. Por isso ha' um
-        // 1o ciclo descartavel (usando o tempo_min_efetivo antigo) so'
-        // para reentrar em CARRO_VERDE com o novo valor (alto=20) ja
-        // carregado; a 2a pressao mede o tempo que importa.
-        reseta_dut;
-        gera_veiculos(50); // ~50*20 ciclos = 1000 ciclos = 5 janelas de 200
-        if (dut.nivel_fluxo !== 2'b10) begin
-            erros = erros + 1;
-            $display("[FALHA] nivel_fluxo=%b apos o burst de veiculos, esperado 10 (alto)", dut.nivel_fluxo);
-        end else $display("[OK]    nivel_fluxo=ALTO apos burst real de 50 veiculos em ~5 janelas");
-
-        if (dut.tempo_min_efetivo !== 8'd20) begin
-            erros = erros + 1;
-            $display("[FALHA] tempo_min_efetivo=%0d, esperado 20 (dobro do padrao 10, trafego alto)",
-                      dut.tempo_min_efetivo);
-        end else $display("[OK]    tempo_min_efetivo=20 (dobro do padrao, trafego alto -> pedestre espera mais)");
-
-        botao_raw = 0; // 1a pressao (descartavel, ainda com o tempo antigo)
-        espera_clk(15);
-        botao_raw = 1;
-        espera_clk(3 + 2 + 15 + 3);
-        if (dut.estado_carro !== 2'b10) begin
-            erros = erros + 1;
-            $display("[FALHA] nao retornou a CARRO_VERDE apos o 1o ciclo descartavel (estado_carro=%b)", dut.estado_carro);
-        end
-
-        botao_raw = 0; // 2a pressao: mede o efeito real do trafego alto
-        aguarda_amarelo(ciclos_alto);
-        botao_raw = 1;
-        $display("[INFO]  trafego ALTO: %0d ciclos ate o inicio do amarelo (tempo_min_efetivo=20)", ciclos_alto);
-
-        if (ciclos_alto <= ciclos_baixo) begin
-            erros = erros + 1;
-            $display("[FALHA] tempo sob trafego alto (%0d) nao foi maior que sob trafego baixo (%0d)",
-                      ciclos_alto, ciclos_baixo);
-        end else $display("[OK]    comportamento dinamico confirmado: trafego alto atrasa a liberacao do pedestre (%0d > %0d ciclos)",
-                      ciclos_alto, ciclos_baixo);
-
-        // ---- Caso 6: telemetria lida de verdade via miso/sclk ----
-        reseta_dut;
-        le_telemetria_serial(telemetria_lida, fase_esperada, contagem_esperada);
-        if (telemetria_lida[7:6] !== fase_esperada) begin
-            erros = erros + 1;
-            $display("[FALHA] telemetria fase=%b, esperado estado_carro=%b (no instante do quadro)",
-                      telemetria_lida[7:6], fase_esperada);
-        end else $display("[OK]    telemetria de fase (%b) bate com estado_carro real",
-                      telemetria_lida[7:6]);
-
-        // aceita esperado OU esperado+1: protocolo_serial captura o valor
-        // do registrador 1 ciclo "antes" do que o testbench le' depois --
-        // mesma defasagem ja' vista em carrega_cont. Compara so' os 4
-        // bits baixos porque a contagem e' truncada no byte de telemetria
-        // (ver top_semaforo.v) para abrir espaco pro nivel_fluxo.
-        if (telemetria_lida[3:0] !== contagem_esperada[3:0] &&
-            telemetria_lida[3:0] !== contagem_esperada[3:0] + 4'd1) begin
-            erros = erros + 1;
-            $display("[FALHA] telemetria contagem=%0d, esperado %0d (ou %0d, defasagem de 1 ciclo)",
-                      telemetria_lida[3:0], contagem_esperada[3:0], contagem_esperada[3:0] + 4'd1);
-        end else $display("[OK]    telemetria de contagem regressiva (%0d) bate com a FSM real (referencia=%0d) -- e' o valor que alimentaria o countdown da Raspberry Pi",
-                      telemetria_lida[3:0], contagem_esperada[3:0]);
-
-        if (telemetria_lida[5:4] !== dut.nivel_fluxo) begin
-            erros = erros + 1;
-            $display("[FALHA] telemetria nivel_fluxo=%b, esperado %b", telemetria_lida[5:4], dut.nivel_fluxo);
-        end else $display("[OK]    telemetria de nivel_fluxo (%b) bate com o real", telemetria_lida[5:4]);
-
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (12/12)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

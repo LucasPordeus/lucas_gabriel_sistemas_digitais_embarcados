@@ -1,92 +1,132 @@
-# Entrega Final — Semáforo Inteligente com Botão de Pedestre (ARM–FPGA)
+# Semáforo Inteligente com Botão de Pedestre — Tang Nano 4K + Raspberry Pi
 
+Cruzamento com travessia de pedestres sob demanda. Por padrão o sinal fica
+**verde para os carros**. O pedestre aperta um botão para pedir a travessia.
+A FPGA mede o fluxo de veículos com um sensor IR: com **fluxo baixo** o
+pedestre é liberado mais rápido; com **fluxo alto** ele espera mais.
 
-## Objetivo do projeto consolidado
+- **FPGA (Tang Nano 4K, GW1NSR-LV4C):** lê botão e sensor, decide as fases e
+  acende os LEDs. Funciona sozinha.
+- **Raspberry Pi Zero 2W (Assembly ARM64):** **apenas monitora**. Lê a
+  telemetria da FPGA uma vez por segundo e imprime o estado. Não envia nenhum
+  comando nem configura nada.
 
-Um sistema embarcado híbrido ARM (Raspberry Pi Zero 2W) + FPGA (Tang Nano
-4K) que controla um cruzamento com travessia de pedestres sob demanda: lê
-um sensor de veículos e um botão de pedestre, ajusta dinamicamente o
-tempo de verde dos veículos com base no fluxo recente (histórico em BRAM
-+ filtro de média móvel em DSP), e comunica-se com o ARM via um protocolo
-serial síncrono com handshaking e telemetria. O ARM cuida da configuração
-de parâmetros, pré-processamento numérico (incluindo NEON SIMD) e testes
-de desempenho; a FPGA garante o determinismo temporal crítico de
-segurança do cruzamento (o tempo mínimo de verde dos veículos nunca cai
-abaixo de um piso de segurança, mesmo com pedestre esperando e trânsito
-baixo).
-
-## Tempo de verde dinâmico (extensão)
-
-Antes desta extensão, `nivel_fluxo` (baixo/médio/alto, calculado por
-`bram_historico.v` + `media_movel_dsp.v`) era medido e enviado por
-telemetria ao ARM, mas nenhum tempo da FSM reagia a ele — os tempos de
-fase eram fixos até serem trocados manualmente via protocolo serial.
-Agora `top_semaforo.v` ajusta o tempo mínimo de verde sozinho, sem
-depender de nenhum comando do ARM:
-
-| Nível de fluxo medido | Tempo de verde efetivo | Efeito |
-|---|---|---|
-| Baixo (padrão, sem veículos) | metade do valor de referência (`tempo_min_reg`), com piso de 3 ciclos | pedestre é liberado mais rápido |
-| Médio | igual ao valor de referência | comportamento padrão |
-| Alto | dobro do valor de referência, com teto de 63 ciclos | veículos escoam mais, pedestre espera mais |
-
-Com o valor de referência padrão (`tempo_min_reg = 10`), isso dá: baixo
-= 5, médio = 10, alto = 20 ciclos. Validado em `tb_top_semaforo.v` com um
-burst real de 50 veículos (não um valor forçado) até `nivel_fluxo`
-realmente virar "alto", comparando o tempo até a liberação do pedestre
-nos dois cenários (casos 4 e 5, dentro dos 12/12 do testbench completo,
-incluindo a comparação direta trânsito alto > trânsito baixo). Também
-foi corrigido, junto com essa extensão, um problema real do TP4/TP5: a
-amostra enviada ao filtro de média móvel estava fixa em 1 por veículo, o
-que fazia a média nunca sair de "baixo" na integração real — agora ela é
-a contagem de veículos numa janela de tempo (`JANELA_AMOSTRAGEM`
-ciclos), refletindo a taxa de trânsito de verdade.
-
-
-## Log em tempo real do countdown (extensão)
-
-A telemetria enviada pela FPGA via `miso` (`protocolo_serial.v`) passou a
-carregar a fase atual do semáforo + a contagem regressiva real da fase
-corrente, em vez de `nivel_fluxo` + um ponteiro da BRAM (que continuam
-funcionais e testados internamente, só não são mais duplicados na
-telemetria). O novo programa `asm/monitor_semaforo.s` lê essa telemetria
-(simulando o link serial via o buffer circular de `buffer_lib.s`, mesma
-metodologia de `main_tp5.s`) e imprime, a cada segundo real
-(`nanosleep`), uma linha do tipo:
-
-```
-[t=42s] Sinal dos CARROS: VERDE   -> fecha em 1s (fase+contagem decodificados do byte de telemetria via miso)
-```
-
-demonstrando os cenários de trânsito baixo (verde fecha em 5s) e alto
-(verde fecha em 20s). Validado tanto no Verilog (`tb_top_semaforo.v`,
-caso 6, lendo o byte real via `sclk`/`mosi`/`miso`) quanto na execução
-real do binário ARM64 diretamente na Raspberry Pi — log completo em
-`docs/evidencias/final_project_monitor_semaforo_run.txt`. Detalhes
-completos (incluindo o bug real de `strings_lib.s` encontrado e corrigido
-ao implementar isso) estão em
-`CONTEXTO_PROJETO_SEMAFORO_INTELIGENTE.md`, seção 6.
-
-## Estrutura de pastas
+## Estrutura
 
 ```
 final_project/
-├── rtl/           -> todos os módulos Verilog do projeto (TP1 a TP5, consolidado)
-├── tb/            -> todos os testbenches (11 conjuntos, 100% dos casos passando)
-├── constraints/   -> tangnano4k.cst definitivo (protocolo serial de 5 fios)
+├── rtl/                  módulos Verilog (topo: top_semaforo.v)
+├── tb/                   um testbench por módulo
+├── constraints/
+│   ├── tangnano4k.cst    pinagem
+│   └── tangnano4k.sdc    clock de 27 MHz
 ├── asm/
-│   ├── lib/        -> libembarcado.a (gpio_lib, strings_lib, buffer_lib)
-│   ├── main_tp5.s   -> programa final ARM (reaproveitado como programa principal)
-│   ├── monitor_semaforo.s -> log em tempo real do countdown (extensao pos-TP5)
-│   └── (demais programas de cada etapa, mantidos como registro incremental)
-├── Makefile
-├── README.md (este arquivo)
-└── docs/evidencias/         -> todos os logs reais de simulação/execução do TP1 ao TP5
+│   ├── monitor_semaforo.s           programa da Raspberry Pi
+│   └── lib/                         gpio_lib, protocolo_serial_gpio, telemetria, strings_lib
+├── docs/evidencias/      logs de simulação, síntese e montagem
+├── GUIA_MONTAGEM_HARDWARE.md        fiação e roteiro de teste na placa
+└── Makefile
 ```
 
-O módulo de topo final é `rtl/top_semaforo.v`, e o programa ARM principal
-é `asm/main_tp5.s` (usando `libembarcado.a`). Os artefatos dos TPs
-anteriores (`estado_basico_decoder.v`, `protocolo_paralelo.v`,
-`tp1_fluxo_basico.s` etc.) são mantidos na pasta como registro do
-desenvolvimento incremental exigido pelo enunciado, mas não fazem mais
-parte do caminho de execução final.
+## Comportamento
+
+| Fase | Carros | Pedestre | Duração | Sai quando |
+|---|---|---|---|---|
+| CARRO_VERDE | verde | vermelho | indefinida | há pedido **e** o tempo de verde acabou |
+| CARRO_AMARELO | amarelo | vermelho | 3 s | o tempo acaba |
+| PEDESTRE_VERDE | vermelho | verde | 15 s | o tempo acaba (o pedido é apagado) |
+
+Tempo de verde dos carros, conforme o fluxo medido:
+
+| Fluxo (média de veículos por janela de 10 s, últimas 5 janelas) | Tempo de verde |
+|---|---|
+| Baixo (≤ 1) | 5 s |
+| Médio (2 a 3) | 10 s |
+| Alto (≥ 4) | 20 s |
+
+O tempo de verde vale em dois momentos: como verde mínimo ao entrar em
+CARRO_VERDE, e como espera mínima a partir do aperto do botão. Assim, com
+fluxo alto o pedestre espera ~20 s + 3 s de amarelo, mesmo que o verde já
+esteja aceso há muito tempo. Um aperto durante o amarelo ou a travessia é
+descartado ao fim da travessia.
+
+Segurança: o pedestre só fica verde no estado em que os carros estão em
+vermelho. Um estado inválido acende vermelho para os dois por 1 ciclo e
+volta para CARRO_VERDE.
+
+## Protocolo de telemetria (FPGA → Raspberry Pi)
+
+Link serial síncrono no estilo SPI, só de leitura: a Raspberry é o mestre e a
+FPGA só responde.
+
+| Sinal | Direção | Raspberry (BCM / pino físico) | Tang Nano 4K |
+|---|---|---|---|
+| `sclk` | Pi → FPGA | GPIO11 / 23 | 40 |
+| `cs_n` | Pi → FPGA | GPIO6 / 31 | 42 |
+| `miso` | FPGA → Pi | GPIO20 / 38 | 33 |
+| GND | — | 39 | GND |
+
+- **Modo:** SPI modo 0 (CPOL = 0, CPHA = 0), MSB primeiro, 16 bits por quadro.
+- **Delimitação:** o quadro começa quando `cs_n` desce e termina quando sobe.
+  Ao descer `cs_n`, a FPGA congela os 16 bits (todos os campos são do mesmo
+  instante) e já coloca o bit 15 em `miso`. A cada subida de `sclk` passa para
+  o bit seguinte. A Raspberry lê `miso` antes de cada subida.
+- **Taxa:** não há baud rate fixo, porque o clock vem da Raspberry. O driver
+  usa um atraso de 20 000 iterações por meio período, o que dá `sclk` na faixa
+  de ~10–25 kHz e cerca de 1 quadro por segundo. O limite da FPGA é cada nível
+  de `sclk` durar mais que ~150 ns (4 ciclos de 27 MHz, por causa da
+  sincronização).
+
+Formato do quadro:
+
+| Bits | Campo | Valores |
+|---|---|---|
+| 15–12 | marcador | sempre `1010` |
+| 11–10 | cor dos carros | `00` vermelho, `01` amarelo, `10` verde |
+| 9 | cor do pedestre | `1` verde, `0` vermelho |
+| 8 | pedido de travessia pendente | `1` sim, `0` não |
+| 7–6 | nível de fluxo | `00` baixo, `01` médio, `10` alto |
+| 5–0 | segundos restantes da fase atual | 0–63 |
+
+Exemplo: `1010 10 0 1 01 000100` = carros verdes, pedestre vermelho, pedido
+pendente, fluxo médio, 4 s para o fim do verde.
+
+A Raspberry descarta o quadro (`QUADRO INVALIDO`) se o marcador não for
+`1010`, se cor ou fluxo valerem `11`, ou se o pedestre estiver verde com os
+carros fora do vermelho. Um fio solto, sem GND comum ou com a FPGA não gravada
+lê só zeros ou só uns, que caem nesse caso.
+
+Saída do monitor:
+
+```
+[t=12s] carros=VERDE pedestres=VERMELHO restante=4s fluxo=MEDIO pedido=SIM
+```
+
+`restante` é o tempo que falta da fase atual. Em CARRO_VERDE sem pedido,
+`restante=0s` significa que o verde mínimo já foi cumprido.
+
+## Como usar
+
+```bash
+make sim        # 10 testbenches (Icarus Verilog)
+make synth      # Yosys + nextpnr-himbaechel + Apicula -> build/top_semaforo.fs
+make asm        # na Raspberry Pi: monta build/monitor_semaforo
+make run        # sudo ./build/monitor_semaforo
+```
+
+Para gravar pelo Gowin EDA: crie um projeto para `GW1NSR-LV4CQN48PC7/I6` e
+adicione `rtl/*.v`, `constraints/tangnano4k.cst` e
+`constraints/tangnano4k.sdc`, com topo `top_semaforo`.
+
+A fiação e o roteiro de teste na placa estão em
+[`GUIA_MONTAGEM_HARDWARE.md`](GUIA_MONTAGEM_HARDWARE.md).
+
+## Verificação
+
+Logs em `docs/evidencias/`:
+
+- `simulacao.txt` — 10/10 testbenches passando, sem warnings.
+- `sintese_pnr.txt` — síntese e place & route sem warnings, 198 MHz máximo
+  (exigido: 27 MHz). Usa 1 BSRAM (histórico) e 1 MULT18X18 (média).
+- `montagem_arm.txt` — montagem sem warnings, decodificador conferido nos
+  65 536 quadros possíveis e driver serial conferido contra um modelo da FPGA.

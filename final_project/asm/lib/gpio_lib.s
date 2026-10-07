@@ -1,115 +1,112 @@
-// gpio_lib.s - biblioteca de acesso a GPIO (AArch64 / GAS)
-// Funcoes reutilizaveis extraidas de gpio_map.s (TP3), agora organizadas
-// como uma biblioteca estatica (libembarcado.a) para uso por qualquer
-// programa do projeto. Segue a convencao AAPCS64 (parametros em x0-x7,
-// retorno em x0, x19-x28/x29/x30 preservados pelo chamado).
+// gpio_lib.s - acesso direto aos registradores de GPIO do BCM2710A1
+// (Raspberry Pi Zero 2W) pelo mapeamento de /dev/gpiomem. Base de
+// protocolo_serial_gpio.s. Convencao AAPCS64: argumentos em x0-x7,
+// retorno em x0, x19-x29 preservados.
 //
-//   gpio_map_init()              -> x0 = ponteiro base mapeado (real ou simulado)
-//   gpio_set_bit(x0=base,x1=offset,x2=bit)   -> seta o bit "bit" no registrador em offset
-//   gpio_clear_bit(x0=base,x1=offset,x2=bit) -> limpa o bit "bit" no registrador em offset
-//   gpio_read_bit(x0=base,x1=offset,x2=bit)  -> w0 = valor do bit (0/1)
-//   gpio_configura_pino(x0=base,w1=pino,w2=funcao) -> configura GPFSELn
-//       (funcao: 0=entrada, 1=saida). Extraida da logica de config_pino de
-//       gpio_map.s (TP3) e generalizada para qualquer pino 0-53, usada pelo
-//       driver do protocolo serial (ver protocolo_serial_gpio.s).
+//   gpio_map_init()                       -> x0 = base dos registradores, ou 0 se falhar
+//   gpio_configura_pino(x0=base, w1=pino, w2=modo)   modo: 0 = entrada, 1 = saida
+//   gpio_escreve(x0=base, w1=pino, w2=nivel)         nivel: 0 = baixo, 1 = alto
+//   gpio_le(x0=base, w1=pino)             -> w0 = nivel do pino (0 ou 1)
+// Pinos validos: 0-31 (todos os usados pelo projeto).
+
+GPSET0_OFF = 0x1C        // escrever 1 no bit n leva o pino n para nivel alto
+GPCLR0_OFF = 0x28        // escrever 1 no bit n leva o pino n para nivel baixo
+GPLEV0_OFF = 0x34        // bit n = nivel atual do pino n
 
     .data
 caminho_gpiomem: .asciz "/dev/gpiomem"
 
     .text
     .global gpio_map_init
-    .global gpio_set_bit
-    .global gpio_clear_bit
-    .global gpio_read_bit
     .global gpio_configura_pino
+    .global gpio_escreve
+    .global gpio_le
 
+// ---- gpio_map_init ----
+// Abre /dev/gpiomem e mapeia 4 KiB com os registradores de GPIO.
+// Retorno: x0 = endereco base mapeado; 0 se nao abriu ou nao mapeou
+// (sem permissao, ou nao esta rodando numa Raspberry Pi).
 gpio_map_init:
-    stp     x29, x30, [sp, #-16]!
+    stp     x29, x30, [sp, #-32]!
+    mov     x29, sp
+    str     x19, [sp, #16]
+
     mov     x0, #-100                  // AT_FDCWD
     adrp    x1, caminho_gpiomem
     add     x1, x1, :lo12:caminho_gpiomem
-    mov     x2, #2                     // O_RDWR
+    movz    x2, #0x1002
+    movk    x2, #0x10, lsl #16         // x2 = O_RDWR | O_SYNC (0x101002)
     mov     x3, #0
     mov     x8, #56                    // openat
     svc     #0
-    mov     x9, x0                     // x9 = fd (ou negativo)
-
-    cmp     x9, #0
-    b.lt    .Lmapa_simulado
+    cmp     x0, #0
+    b.lt    .Lmap_falhou
+    mov     x19, x0                    // x19 = descritor de /dev/gpiomem
 
     mov     x0, #0
     mov     x1, #4096
     mov     x2, #3                     // PROT_READ | PROT_WRITE
     mov     x3, #1                     // MAP_SHARED
-    mov     x4, x9
+    mov     x4, x19
     mov     x5, #0
     mov     x8, #222                   // mmap
     svc     #0
-    b       .Lmapa_fim
+    mov     x9, x0                     // x9 = endereco mapeado ou -errno
 
-.Lmapa_simulado:
-    mov     x0, #0
-    mov     x1, #4096
-    mov     x2, #3
-    mov     x3, #0x22                  // MAP_PRIVATE | MAP_ANONYMOUS
-    mov     x4, #-1
-    mov     x5, #0
-    mov     x8, #222
+    mov     x0, x19
+    mov     x8, #57                    // close (o mapeamento continua valido)
     svc     #0
 
-.Lmapa_fim:
-    ldp     x29, x30, [sp], #16
+    mov     x10, #-4096
+    cmp     x9, x10
+    b.hi    .Lmap_falhou               // -4095..-1 = erro do mmap
+    mov     x0, x9
+    b       .Lmap_fim
+
+.Lmap_falhou:
+    mov     x0, #0
+.Lmap_fim:
+    ldr     x19, [sp, #16]
+    ldp     x29, x30, [sp], #32
     ret
 
-gpio_set_bit:
-    add     x3, x0, x1
-    ldr     w4, [x3]
-    mov     w5, #1
-    lsl     w5, w5, w2
-    orr     w4, w4, w5
-    str     w4, [x3]
-    ret
-
-gpio_clear_bit:
-    add     x3, x0, x1
-    ldr     w4, [x3]
-    mov     w5, #1
-    lsl     w5, w5, w2
-    bic     w4, w4, w5
-    str     w4, [x3]
-    ret
-
-gpio_read_bit:
-    add     x3, x0, x1
-    ldr     w4, [x3]
-    lsr     w4, w4, w2
-    and     w0, w4, #1
-    ret
-
-// GPFSELn: 10 pinos por registrador, 3 bits cada, registrador n comeca no
-// offset n*4 a partir da base (GPFSEL0=0x00, GPFSEL1=0x04, ...). Mesma
-// tecnica de bit a bit usada em gpio_map.s, generalizada para qualquer
-// pino em vez de fixa em GPIO17.
+// ---- gpio_configura_pino ----
+// GPFSELn: 10 pinos por registrador, 3 bits por pino, registrador n no
+// offset 4*n. 000 = entrada, 001 = saida.
 gpio_configura_pino:
     mov     w9, #10
-    udiv    w10, w1, w9           // w10 = pino / 10  (indice do registrador GPFSELn)
-    msub    w11, w10, w9, w1      // w11 = pino % 10  (posicao dentro do registrador)
-    mov     w12, #3
-    mul     w11, w11, w12         // w11 = deslocamento em bits (posicao * 3)
-
-    lsl     w10, w10, #2          // w10 = indice * 4 (offset em bytes de GPFSELn)
-    add     x10, x0, x10          // x10 = endereco do registrador (w10 ja zero-estendido)
+    udiv    w10, w1, w9                // w10 = indice do GPFSELn (pino / 10)
+    msub    w11, w10, w9, w1           // w11 = posicao no registrador (pino % 10)
+    add     w11, w11, w11, lsl #1      // w11 = deslocamento em bits (posicao * 3)
+    add     x10, x0, x10, lsl #2       // x10 = endereco de GPFSELn
 
     ldr     w3, [x10]
     mov     w4, #0b111
     lsl     w4, w4, w11
-    bic     w3, w3, w4            // zera os 3 bits (equivale a configurar ENTRADA)
-
-    cmp     w2, #0
-    b.eq    1f
+    bic     w3, w3, w4                 // 000 = entrada
+    cbz     w2, 1f
     mov     w4, #0b001
     lsl     w4, w4, w11
-    orr     w3, w3, w4            // 001 = SAIDA
-1:
-    str     w3, [x10]
+    orr     w3, w3, w4                 // 001 = saida
+1:  str     w3, [x10]
+    ret
+
+// ---- gpio_escreve ----
+// GPSET0/GPCLR0 sao so' de escrita: grava apenas a mascara do pino, sem
+// ler antes, e os demais pinos nao mudam.
+gpio_escreve:
+    mov     w3, #1
+    lsl     w3, w3, w1                 // w3 = mascara do pino
+    mov     x4, #GPCLR0_OFF
+    mov     x5, #GPSET0_OFF
+    cmp     w2, #0
+    csel    x4, x4, x5, eq             // nivel 0 -> GPCLR0, nivel 1 -> GPSET0
+    str     w3, [x0, x4]
+    ret
+
+// ---- gpio_le ----
+gpio_le:
+    ldr     w3, [x0, #GPLEV0_OFF]
+    lsr     w3, w3, w1
+    and     w0, w3, #1
     ret

@@ -1,36 +1,42 @@
-// debounce: filtro anti-ruido generico e parametrizavel.
-// Considera a entrada estavel somente apos N_CYCLES ciclos de clock
-// consecutivos com o mesmo valor (contador que satura e reinicia a
-// qualquer transicao).
+// debounce: filtra uma entrada mecanica/ruidosa (botao ou sensor IR).
+// Sincroniza a entrada assincrona com 2 flip-flops (evita metaestabilidade)
+// e so' muda a saida depois que a entrada fica N_CICLOS ciclos seguidos
+// no novo nivel. Usado por botao_pedestre e sensor_veiculo.
+//
+// Parametro:
+//   N_CICLOS - ciclos de clk que a entrada precisa ficar estavel
+//              (ex.: 540_000 ciclos = 20 ms a 27 MHz)
+// Portas:
+//   entrada - sinal bruto, ativo em nivel ALTO (assincrono ao clk)
+//   saida   - sinal filtrado e sincronizado ao clk (repouso = 0)
 module debounce #(
-    parameter N_CYCLES = 8   // ciclos consecutivos estaveis exigidos
+    parameter integer N_CICLOS = 540_000
 ) (
     input  wire clk,
     input  wire rst_n,
-    input  wire in_raw,      // entrada assincrona/ruidosa
-    output reg  out_stable   // saida filtrada
+    input  wire entrada,
+    output reg  saida
 );
-    localparam CNT_W = $clog2(N_CYCLES + 1);
+    localparam integer LARGURA_CONT = $clog2(N_CICLOS + 1);
 
-    reg [CNT_W-1:0] contador;
-    reg             in_sync;   // 1 flip-flop de sincronizacao (evita metaestabilidade)
+    reg [1:0]              sinc;      // cadeia de sincronizacao; sinc[1] = entrada ja sincronizada
+    reg [LARGURA_CONT-1:0] contador;  // ciclos seguidos em que sinc[1] difere de saida
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            in_sync    <= 1'b0;
-            contador   <= {CNT_W{1'b0}};
-            out_stable <= 1'b0;
+            sinc     <= 2'b00;
+            contador <= {LARGURA_CONT{1'b0}};
+            saida    <= 1'b0;
         end else begin
-            in_sync <= in_raw;
+            sinc <= {sinc[0], entrada};
 
-            if (in_sync == out_stable) begin
-                contador <= {CNT_W{1'b0}};
-            end else if (contador >= N_CYCLES - 1) begin
-                out_stable <= in_sync;
-                contador   <= {CNT_W{1'b0}};
-            end else begin
+            if (sinc[1] == saida)
+                contador <= {LARGURA_CONT{1'b0}};       // qualquer repique reinicia a contagem
+            else if (contador == N_CICLOS - 1) begin
+                saida    <= sinc[1];                    // estavel tempo suficiente: aceita o novo nivel
+                contador <= {LARGURA_CONT{1'b0}};
+            end else
                 contador <= contador + 1'b1;
-            end
         end
     end
 endmodule

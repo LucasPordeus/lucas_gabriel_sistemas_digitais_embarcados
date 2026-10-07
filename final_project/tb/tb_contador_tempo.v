@@ -1,58 +1,56 @@
-// Testbench do contador_tempo: confere carga do valor inicial, decremento
-// ate zerar, e saturacao em zero (nao decrementa abaixo disso).
+// tb_contador_tempo: verifica carga, decremento so' com habilita, parada
+// em zero e prioridade de carrega sobre habilita.
 `timescale 1ns/1ps
 module tb_contador_tempo;
-    localparam W = 8;
-    reg clk, rst_n, carrega, habilita;
-    reg [W-1:0] valor_inicial;
-    wire [W-1:0] valor_atual;
-    wire zerou;
+    reg        clk, rst_n, carrega, habilita;
+    reg  [5:0] valor_inicial;
+    wire [5:0] valor_atual;
+    wire       zerou;
     integer erros;
 
-    contador_tempo #(.LARGURA(W)) dut (
+    contador_tempo #(.LARGURA(6)) dut (
         .clk(clk), .rst_n(rst_n), .carrega(carrega), .habilita(habilita),
         .valor_inicial(valor_inicial), .valor_atual(valor_atual), .zerou(zerou)
     );
 
     always #5 clk = ~clk;
 
-    task espera_ciclos(input integer n);
+    task espera(input integer n);
         integer i;
-        begin
-            for (i = 0; i < n; i = i + 1) @(posedge clk);
-        end
+        for (i = 0; i < n; i = i + 1) begin @(posedge clk); #1; end
+    endtask
+
+    task confere(input [5:0] esperado, input [8*40-1:0] descricao);
+        if (valor_atual !== esperado || zerou !== (esperado == 0)) begin
+            erros = erros + 1;
+            $display("[FALHA] %0s (valor=%0d zerou=%b)", descricao, valor_atual, zerou);
+        end else
+            $display("[OK]    %0s (valor=%0d)", descricao, valor_atual);
     endtask
 
     initial begin
-        clk = 0; rst_n = 0; carrega = 0; habilita = 0; valor_inicial = 0; erros = 0;
-        $dumpfile("tb_contador_tempo.vcd");
+        $dumpfile("build/tb_contador_tempo.vcd");
         $dumpvars(0, tb_contador_tempo);
+        clk = 0; rst_n = 0; carrega = 0; habilita = 0; valor_inicial = 6'd3; erros = 0;
+        espera(2); rst_n = 1; espera(1);
+        confere(6'd0, "zerado apos reset");
 
-        espera_ciclos(2); rst_n = 1; espera_ciclos(1);
+        carrega = 1; espera(1); carrega = 0;
+        confere(6'd3, "carrega valor_inicial");
 
-        valor_inicial = 5; carrega = 1; espera_ciclos(1); carrega = 0;
-        if (valor_atual !== 5) begin
-            erros = erros + 1;
-            $display("[FALHA] carga nao funcionou: valor_atual=%0d (esperado 5)", valor_atual);
-        end else $display("[OK]    carga do valor inicial (5) funcionou");
+        espera(4);
+        confere(6'd3, "sem habilita, nao decrementa");
 
-        habilita = 1;
-        espera_ciclos(5);
-        if (zerou !== 1'b1) begin
-            erros = erros + 1;
-            $display("[FALHA] contador nao zerou apos 5 ciclos habilitado (valor_atual=%0d)", valor_atual);
-        end else $display("[OK]    contador zerou apos 5 ciclos, como esperado");
+        habilita = 1; espera(2);
+        confere(6'd1, "decrementa 1 por ciclo habilitado");
+        espera(3);
+        confere(6'd0, "para em zero");
 
-        espera_ciclos(3);
-        if (valor_atual !== 0) begin
-            erros = erros + 1;
-            $display("[FALHA] contador nao deveria decrementar abaixo de zero (valor_atual=%0d)", valor_atual);
-        end else $display("[OK]    contador satura em zero corretamente");
+        carrega = 1; espera(1); carrega = 0; habilita = 0;
+        confere(6'd3, "carrega tem prioridade sobre habilita");
 
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (3/3)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

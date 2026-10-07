@@ -1,33 +1,43 @@
-IO_LOC "clk"        45;
-IO_LOC "rst_n"      15;
+// tangnano4k.cst: pinagem do semaforo inteligente na Tang Nano 4K
+// (GW1NSR-LV4CQN48P). Numeros = pinos do chip, impressos no header da placa.
+//
+// Bancos de I/O da placa (pinout oficial Sipeed):
+//   banco 0 = 3,3 V | banco 1 = 3,3 V | banco 2 = 2,5 V (HDMI) | banco 3 = 1,8 V
+// Sensor, LEDs e o link com a Raspberry Pi (3,3 V) ficam nos bancos 0/1.
+// Os pinos 1-4, 6-9 e 47-48 (flash, JTAG, DONE) nao sao usados.
 
-IO_LOC "sensor_raw" 28;
-IO_LOC "botao_raw"  14;
+// oscilador de 27 MHz da placa
+IO_LOC  "clk" 45;
+IO_PORT "clk" IO_TYPE=LVCMOS33;
 
-IO_LOC "led_vermelho" 31;
-IO_LOC "led_amarelo"  32;
-IO_LOC "led_verde"    33;
+// botoes da placa (banco 3, 1,8 V, pull-up externo; apertado = 0)
+IO_LOC  "rst_n"     15;   // S2 = reset
+IO_PORT "rst_n"     IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC  "botao_raw" 14;   // S1 = pedido de travessia
+IO_PORT "botao_raw" IO_TYPE=LVCMOS18 PULL_MODE=UP;
 
-IO_LOC "led_ped_verde"    34;
-IO_LOC "led_ped_vermelho" 35;
-
-IO_LOC "sclk" 39;
-IO_LOC "cs_n" 40;
-IO_LOC "mosi" 41;
-IO_LOC "miso" 42;
-IO_LOC "busy" 43;
-
-IO_PORT "clk"        IO_TYPE=LVCMOS33;
-IO_PORT "rst_n"      PULL_MODE=UP;
+// sensor IR de veiculos (saida digital 3,3 V; 0 = veiculo detectado)
+IO_LOC  "sensor_raw" 39;
 IO_PORT "sensor_raw" IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_PORT "botao_raw"  PULL_MODE=UP;
+
+// LEDs dos carros (1 = aceso; resistor de 220 ohm ate o GND)
+IO_LOC  "led_vermelho" 41;
 IO_PORT "led_vermelho" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC  "led_amarelo"  43;
 IO_PORT "led_amarelo"  IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC  "led_verde"    44;
 IO_PORT "led_verde"    IO_TYPE=LVCMOS33 DRIVE=8;
+
+// LEDs do pedestre; o pino 10 tambem acende o LED da propria placa
+IO_LOC  "led_ped_verde"    46;
 IO_PORT "led_ped_verde"    IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC  "led_ped_vermelho" 10;
 IO_PORT "led_ped_vermelho" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// link de telemetria com a Raspberry Pi
+IO_LOC  "sclk" 40;   // entrada, vem do GPIO11 da Raspberry
 IO_PORT "sclk" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC  "cs_n" 42;   // entrada, vem do GPIO6 da Raspberry
 IO_PORT "cs_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_PORT "mosi" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
-IO_PORT "miso" IO_TYPE=LVCMOS33 DRIVE=8;
-IO_PORT "busy" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC  "miso" 33;   // saida para o GPIO20 da Raspberry (banco 2: nivel alto = 2,5 V)
+IO_PORT "miso" IO_TYPE=LVCMOS25 DRIVE=8;

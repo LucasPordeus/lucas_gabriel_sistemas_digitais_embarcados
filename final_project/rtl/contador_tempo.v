@@ -1,17 +1,24 @@
-// contador_tempo: temporizador decrescente generico, usado pela FSM do
-// semaforo para os tempos minimos de cada fase. Carrega "valor_inicial"
-// quando "carrega" = 1; decrementa 1 por ciclo enquanto "habilita" = 1;
-// "zerou" fica em 1 quando a contagem chega a 0.
+// contador_tempo: temporizador decrescente usado pela fsm_semaforo para
+// medir a duracao de cada fase, em ticks (segundos).
+//
+// Parametro:
+//   LARGURA - bits do contador
+// Portas:
+//   carrega       - 1: copia valor_inicial para o contador (prioridade sobre habilita)
+//   habilita      - 1: decrementa 1 (ligado ao tick de 1 s); para em 0
+//   valor_inicial - duracao a carregar
+//   valor_atual   - tempo restante da fase
+//   zerou         - 1 quando valor_atual == 0 (tempo da fase esgotado)
 module contador_tempo #(
-    parameter LARGURA = 16
+    parameter integer LARGURA = 6
 ) (
-    input  wire                  clk,
-    input  wire                  rst_n,
-    input  wire                  carrega,
-    input  wire                  habilita,
-    input  wire [LARGURA-1:0]    valor_inicial,
-    output reg  [LARGURA-1:0]    valor_atual,
-    output wire                  zerou
+    input  wire               clk,
+    input  wire               rst_n,
+    input  wire               carrega,
+    input  wire               habilita,
+    input  wire [LARGURA-1:0] valor_inicial,
+    output reg  [LARGURA-1:0] valor_atual,
+    output wire               zerou
 );
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)

@@ -1,59 +1,50 @@
-// Testbench do botao_pedestre: confere que a solicitacao trava apos um
-// pulso de pressao e so' e' liberada por limpa_solicitacao.
+// tb_botao_pedestre: verifica que o pedido fica guardado depois que o
+// botao e' solto, que limpa_solicitacao o apaga e que repique nao gera pedido.
 `timescale 1ns/1ps
 module tb_botao_pedestre;
-    localparam N = 4;
-    reg clk, rst_n, botao_raw, limpa;
-    wire botao_estavel, solicitacao;
+    localparam integer N = 4;
+
+    reg  clk, rst_n, botao_ativo, limpa;
+    wire solicitacao;
     integer erros;
 
-    botao_pedestre #(.N_CYCLES(N)) dut (
-        .clk(clk), .rst_n(rst_n), .botao_raw(botao_raw),
-        .limpa_solicitacao(limpa),
-        .botao_estavel(botao_estavel), .solicitacao_pedestre(solicitacao)
+    botao_pedestre #(.N_CICLOS(N)) dut (
+        .clk(clk), .rst_n(rst_n), .botao_ativo(botao_ativo),
+        .limpa_solicitacao(limpa), .solicitacao_pedestre(solicitacao)
     );
 
     always #5 clk = ~clk;
 
-    task espera_ciclos(input integer n);
+    task espera(input integer n);
         integer i;
-        begin
-            for (i = 0; i < n; i = i + 1) @(posedge clk);
-        end
+        for (i = 0; i < n; i = i + 1) begin @(posedge clk); #1; end
+    endtask
+
+    task confere(input esperado, input [8*48-1:0] descricao);
+        if (solicitacao !== esperado) begin
+            erros = erros + 1;
+            $display("[FALHA] %0s (solicitacao=%b)", descricao, solicitacao);
+        end else
+            $display("[OK]    %0s", descricao);
     endtask
 
     initial begin
-        clk = 0; rst_n = 0; botao_raw = 0; limpa = 0; erros = 0;
-        $dumpfile("tb_botao_pedestre.vcd");
+        $dumpfile("build/tb_botao_pedestre.vcd");
         $dumpvars(0, tb_botao_pedestre);
+        clk = 0; rst_n = 0; botao_ativo = 0; limpa = 0; erros = 0;
+        espera(2); rst_n = 1; espera(2);
 
-        espera_ciclos(2); rst_n = 1; espera_ciclos(2);
+        botao_ativo = 1; espera(1); botao_ativo = 0; espera(N + 4);
+        confere(1'b0, "toque curto (repique) nao gera pedido");
 
-        // pressiona rapido e solta -- deve travar a solicitacao (latch)
-        botao_raw = 1; espera_ciclos(N + 2);
-        botao_raw = 0; espera_ciclos(N + 2);
+        botao_ativo = 1; espera(N + 4); botao_ativo = 0; espera(N + 4);
+        confere(1'b1, "pedido continua ativo apos soltar o botao");
 
-        if (solicitacao !== 1'b1) begin
-            erros = erros + 1;
-            $display("[FALHA] solicitacao nao foi travada apos pressionar o botao");
-        end else begin
-            $display("[OK]    solicitacao travada mesmo apos soltar o botao");
-        end
+        limpa = 1; espera(1); limpa = 0; espera(1);
+        confere(1'b0, "limpa_solicitacao apaga o pedido");
 
-        // limpa a solicitacao (simula FSM entrando na fase pedestre verde)
-        limpa = 1; espera_ciclos(1); limpa = 0;
-
-        if (solicitacao !== 1'b0) begin
-            erros = erros + 1;
-            $display("[FALHA] solicitacao nao foi limpa por limpa_solicitacao");
-        end else begin
-            $display("[OK]    solicitacao limpa corretamente");
-        end
-
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (2/2)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

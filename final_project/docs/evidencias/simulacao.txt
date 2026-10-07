@@ -1,0 +1,124 @@
+=== tb_debounce ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_debounce.vvp -s tb_debounce tb/tb_debounce.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_debounce.vvp
+VCD info: dumpfile build/tb_debounce.vcd opened for output.
+[OK]    repique ignorado
+[OK]    saida ainda nao muda antes de N + 2 ciclos
+[OK]    nivel 1 estavel chega a saida
+[OK]    nivel 0 estavel chega a saida
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_debounce.v:52: $finish called at 296000 (1ps)
+=== tb_sensor_veiculo ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_sensor_veiculo.vvp -s tb_sensor_veiculo tb/tb_sensor_veiculo.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_sensor_veiculo.vvp
+VCD info: dumpfile build/tb_sensor_veiculo.vcd opened for output.
+[OK]    1 veiculo com repique = 1 pulso (1 pulsos)
+[OK]    3 veiculos = 3 pulsos (3 pulsos)
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_sensor_veiculo.v:56: $finish called at 916000 (1ps)
+=== tb_botao_pedestre ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_botao_pedestre.vvp -s tb_botao_pedestre tb/tb_botao_pedestre.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_botao_pedestre.vvp
+VCD info: dumpfile build/tb_botao_pedestre.vcd opened for output.
+[OK]    toque curto (repique) nao gera pedido
+[OK]    pedido continua ativo apos soltar o botao
+[OK]    limpa_solicitacao apaga o pedido
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_botao_pedestre.v:48: $finish called at 306000 (1ps)
+=== tb_contador_tempo ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_contador_tempo.vvp -s tb_contador_tempo tb/tb_contador_tempo.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_contador_tempo.vvp
+VCD info: dumpfile build/tb_contador_tempo.vcd opened for output.
+[OK]    zerado apos reset (valor=0)
+[OK]    carrega valor_inicial (valor=3)
+[OK]    sem habilita, nao decrementa (valor=3)
+[OK]    decrementa 1 por ciclo habilitado (valor=1)
+[OK]    para em zero (valor=0)
+[OK]    carrega tem prioridade sobre habilita (valor=3)
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_contador_tempo.v:54: $finish called at 136000 (1ps)
+=== tb_estado_basico_decoder ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_estado_basico_decoder.vvp -s tb_estado_basico_decoder tb/tb_estado_basico_decoder.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_estado_basico_decoder.vvp
+VCD info: dumpfile build/tb_estado_basico_decoder.vcd opened for output.
+[OK]    cor_carro=00 -> LEDs (V,A,Vd)=100
+[OK]    cor_carro=01 -> LEDs (V,A,Vd)=010
+[OK]    cor_carro=10 -> LEDs (V,A,Vd)=001
+[OK]    cor_carro=11 -> LEDs (V,A,Vd)=100
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_estado_basico_decoder.v:34: $finish called at 4000 (1ps)
+=== tb_bram_historico ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_bram_historico.vvp -s tb_bram_historico tb/tb_bram_historico.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_bram_historico.vvp
+VCD info: dumpfile build/tb_bram_historico.vcd opened for output.
+[OK]    ponteiro avancou para 6
+[OK]    memoria[0]=10
+[OK]    memoria[1]=20
+[OK]    memoria[2]=30
+[OK]    memoria[3]=40
+[OK]    memoria[4]=50
+[OK]    memoria[5]=60
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_bram_historico.v:53: $finish called at 146000 (1ps)
+=== tb_media_movel_dsp ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_media_movel_dsp.vvp -s tb_media_movel_dsp tb/tb_media_movel_dsp.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_media_movel_dsp.vvp
+VCD info: dumpfile build/tb_media_movel_dsp.vcd opened for output.
+[OK]    amostra 0=0: media=0 nivel=0
+[OK]    amostra 1=1: media=0 nivel=0
+[OK]    amostra 2=2: media=1 nivel=0
+[OK]    amostra 3=3: media=1 nivel=0
+[OK]    amostra 4=4: media=2 nivel=1
+[OK]    amostra 5=8: media=4 nivel=2
+[OK]    amostra 6=8: media=5 nivel=2
+[OK]    amostra 7=8: media=6 nivel=2
+[OK]    amostra 8=8: media=7 nivel=2
+[OK]    amostra 9=0: media=6 nivel=2
+[OK]    amostra 10=0: media=5 nivel=2
+[OK]    amostra 11=0: media=3 nivel=1
+[OK]    amostra 12=0: media=2 nivel=1
+[OK]    amostra 13=0: media=0 nivel=0
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_media_movel_dsp.v:84: $finish called at 936000 (1ps)
+=== tb_protocolo_serial ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_protocolo_serial.vvp -s tb_protocolo_serial tb/tb_protocolo_serial.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_protocolo_serial.vvp
+VCD info: dumpfile build/tb_protocolo_serial.vcd opened for output.
+[OK]    quadro lido bit a bit (a9c5)
+[OK]    quadro atualizado entre transferencias (a001)
+[OK]    quadro congelado durante a transferencia (a5a5)
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_protocolo_serial.v:70: $finish called at 6236000 (1ps)
+=== tb_fsm_semaforo ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_fsm_semaforo.vvp -s tb_fsm_semaforo tb/tb_fsm_semaforo.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_fsm_semaforo.vvp
+VCD info: dumpfile build/tb_fsm_semaforo.vcd opened for output.
+[OK]    inicia com carros verdes e pedestre vermelho
+[OK]    sem pedido, carros continuam verdes
+[OK]    pedido tardio: carros ficam mais tempo_verde em verde
+[OK]    amarelo dura tempo_amarelo e abre para o pedestre
+[OK]    travessia dura tempo_pedestre e volta ao verde
+[OK]    pedido apagado ao fim da travessia
+[OK]    pedido no inicio do verde nao soma esperas
+[OK]    nunca pedestre verde com carro fora do vermelho
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_fsm_semaforo.v:101: $finish called at 576000 (1ps)
+=== tb_top_semaforo ===
+iverilog -g2012 -Wall -Wno-timescale -o build/tb_top_semaforo.vvp -s tb_top_semaforo tb/tb_top_semaforo.v rtl/debounce.v rtl/sensor_veiculo.v rtl/botao_pedestre.v rtl/prescaler.v rtl/contador_tempo.v rtl/fsm_semaforo.v rtl/estado_basico_decoder.v rtl/bram_historico.v rtl/media_movel_dsp.v rtl/protocolo_serial.v rtl/top_semaforo.v
+vvp -n build/tb_top_semaforo.vvp
+VCD info: dumpfile build/tb_top_semaforo.vcd opened for output.
+[OK]    inicio: carros verdes, pedestre vermelho
+[OK]    telemetria inicial: VERDE / VERMELHO / sem pedido / fluxo baixo
+[INFO]  fluxo baixo: 4 s do aperto ao amarelo
+[OK]    fluxo baixo: pedestre espera ~TEMPO_VERDE_BAIXO
+[OK]    telemetria no amarelo: AMARELO / VERMELHO / pedido pendente
+[OK]    telemetria na travessia: VERMELHO / pedestre VERDE
+[OK]    volta ao verde com o pedido apagado
+[OK]    sensor real eleva o fluxo para ALTO
+[INFO]  fluxo alto: 19 s do aperto ao amarelo
+[OK]    fluxo alto: pedestre espera ~TEMPO_VERDE_ALTO
+[OK]    fluxo alto atrasa o pedestre mais que fluxo baixo
+[OK]    sem veiculos o fluxo volta a BAIXO
+[OK]    LEDs sempre coerentes e seguros
+RESULTADO: TODOS OS CASOS PASSARAM
+tb/tb_top_semaforo.v:151: $finish called at 54506000 (1ps)

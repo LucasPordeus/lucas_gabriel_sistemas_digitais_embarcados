@@ -1,48 +1,36 @@
-// Testbench do estado_basico_decoder: percorre as 4 combinacoes possiveis
-// de "estado" e confere led_vermelho/led_amarelo/led_verde.
+// tb_estado_basico_decoder: verifica os 4 codigos de cor_carro, inclusive
+// o codigo invalido 11, que deve acender so' o vermelho.
 `timescale 1ns/1ps
-
 module tb_estado_basico_decoder;
-    reg  [1:0] estado;
+    reg  [1:0] cor_carro;
     wire       led_vermelho, led_amarelo, led_verde;
-    integer    erros;
+    reg  [2:0] esperado [0:3];   // {vermelho, amarelo, verde} esperado para cada codigo
+    integer    i, erros;
 
     estado_basico_decoder dut (
-        .estado(estado),
-        .led_vermelho(led_vermelho),
-        .led_amarelo(led_amarelo),
-        .led_verde(led_verde)
+        .cor_carro(cor_carro),
+        .led_vermelho(led_vermelho), .led_amarelo(led_amarelo), .led_verde(led_verde)
     );
 
-    task check(input [1:0] est, input v, a, g);
-    begin
-        estado = est;
-        #5;
-        if (led_vermelho !== v || led_amarelo !== a || led_verde !== g) begin
-            erros = erros + 1;
-            $display("[FALHA] estado=%b -> V=%b A=%b G=%b (esperado V=%b A=%b G=%b)",
-                      est, led_vermelho, led_amarelo, led_verde, v, a, g);
-        end else begin
-            $display("[OK]    estado=%b -> V=%b A=%b G=%b", est, led_vermelho, led_amarelo, led_verde);
-        end
-    end
-    endtask
-
     initial begin
-        erros = 0;
-        $dumpfile("tb_estado_basico_decoder.vcd");
+        $dumpfile("build/tb_estado_basico_decoder.vcd");
         $dumpvars(0, tb_estado_basico_decoder);
+        esperado[0] = 3'b100; esperado[1] = 3'b010; esperado[2] = 3'b001; esperado[3] = 3'b100;
+        erros = 0;
 
-        check(2'b00, 1, 0, 0); // vermelho
-        check(2'b01, 0, 1, 0); // amarelo
-        check(2'b10, 0, 0, 1); // verde
-        check(2'b11, 1, 0, 0); // invalido -> vermelho (seguranca)
+        // percorre os 4 codigos possiveis; termina apos o codigo 11
+        for (i = 0; i < 4; i = i + 1) begin
+            cor_carro = i; #1;
+            if ({led_vermelho, led_amarelo, led_verde} !== esperado[i]) begin
+                erros = erros + 1;
+                $display("[FALHA] cor_carro=%b -> LEDs %b, esperado %b",
+                         cor_carro, {led_vermelho, led_amarelo, led_verde}, esperado[i]);
+            end else
+                $display("[OK]    cor_carro=%b -> LEDs (V,A,Vd)=%b", cor_carro, esperado[i]);
+        end
 
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (4/4)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
-
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

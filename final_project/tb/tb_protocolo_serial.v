@@ -1,103 +1,72 @@
-// Testbench do protocolo_serial: confere alta impedancia de MISO fora do
-// quadro, handshake de inicio/fim via cs_n, MSB da telemetria disponivel
-// antes do primeiro pulso de sclk, e captura correta do comando apos 8 bits.
+// tb_protocolo_serial: le quadros de 16 bits como a Raspberry Pi faz (le
+// miso antes de cada subida de sclk) e confere que o valor lido e' o
+// quadro do instante em que cs_n desceu, mesmo que "quadro" mude durante
+// a transferencia.
 `timescale 1ns/1ps
 module tb_protocolo_serial;
-    reg clk, rst_n, sclk, cs_n, mosi;
-    reg [1:0] fase_carro_atual;
-    reg [5:0] contagem_regressiva;
-    wire miso, busy;
-    wire [7:0] comando_recebido;
-    wire comando_valido;
-    integer erros;
+    reg         clk, rst_n, sclk, cs_n;
+    reg  [15:0] quadro;
+    wire        miso;
+    reg  [15:0] lido;    // quadro recebido pelo "mestre" do testbench
+    integer     erros;
 
     protocolo_serial dut (
-        .clk(clk), .rst_n(rst_n), .sclk(sclk), .cs_n(cs_n), .mosi(mosi),
-        .fase_carro_atual(fase_carro_atual), .contagem_regressiva(contagem_regressiva),
-        .miso(miso), .busy(busy),
-        .comando_recebido(comando_recebido), .comando_valido(comando_valido)
+        .clk(clk), .rst_n(rst_n), .sclk(sclk), .cs_n(cs_n), .quadro(quadro), .miso(miso)
     );
 
-    always #5 clk = ~clk;   // clock interno da FPGA: periodo 10ns (rapido)
+    always #5 clk = ~clk;
 
-    task espera_clk(input integer n);
-        integer j;
+    task espera(input integer n);
+        integer i;
+        for (i = 0; i < n; i = i + 1) begin @(posedge clk); #1; end
+    endtask
+
+    // transferencia completa; cada nivel de sclk dura 6 ciclos de clk
+    task le_quadro(output [15:0] valor);
+        integer b;
         begin
-            for (j = 0; j < n; j = j + 1) begin
-                @(posedge clk);
-                #1;
+            cs_n = 0; espera(6);
+            // 16 bits, MSB primeiro; termina apos o bit 0
+            for (b = 15; b >= 0; b = b - 1) begin
+                valor[b] = miso;
+                sclk = 1; espera(6);
+                sclk = 0; espera(6);
             end
+            cs_n = 1; espera(6);
         end
     endtask
 
-    // gera 1 pulso de sclk (0->1->0), com varios ciclos de "clk" internos
-    // entre as bordas, simulando um sclk bem mais lento que o clock interno
-    task pulso_sclk(input valor_mosi);
-        begin
-            mosi = valor_mosi;
-            espera_clk(2);
-            sclk = 1'b1;
-            espera_clk(2);   // da tempo para o clk interno amostrar a borda de subida
-            sclk = 1'b0;
-            espera_clk(2);
-        end
+    task confere(input [15:0] esperado, input [8*48-1:0] descricao);
+        if (lido !== esperado) begin
+            erros = erros + 1;
+            $display("[FALHA] %0s (lido=%h esperado=%h)", descricao, lido, esperado);
+        end else
+            $display("[OK]    %0s (%h)", descricao, lido);
     endtask
-
-    integer k;
-    reg [7:0] comando_enviado;
-    reg [7:0] telemetria_esperada;
 
     initial begin
-        clk = 0; rst_n = 0; sclk = 0; cs_n = 1; mosi = 0;
-        fase_carro_atual = 2'b01; contagem_regressiva = 6'b101010; // 42
-        erros = 0;
-        $dumpfile("tb_protocolo_serial.vcd");
+        $dumpfile("build/tb_protocolo_serial.vcd");
         $dumpvars(0, tb_protocolo_serial);
+        clk = 0; rst_n = 0; sclk = 0; cs_n = 1; quadro = 16'hA9C5; erros = 0;
+        espera(2); rst_n = 1; espera(4);
 
-        espera_clk(2); rst_n = 1; espera_clk(2);
+        le_quadro(lido);
+        confere(16'hA9C5, "quadro lido bit a bit");
 
-        // ---- Caso 1: MISO em alta impedancia fora do quadro (cs_n=1) ----
-        if (miso !== 1'bz) begin
-            erros = erros + 1;
-            $display("[FALHA] miso nao esta em alta impedancia com cs_n=1 (miso=%b)", miso);
-        end else $display("[OK]    miso em alta impedancia (Hi-Z) fora do quadro");
+        quadro = 16'hA001; espera(4);
+        le_quadro(lido);
+        confere(16'hA001, "quadro atualizado entre transferencias");
 
-        // ---- inicia o quadro (handshake: cs_n desce) ----
-        cs_n = 0;
-        espera_clk(2);
+        // muda o quadro no meio da transferencia: deve valer o valor antigo
+        quadro = 16'hA5A5; espera(4);
+        fork
+            le_quadro(lido);
+            begin espera(40); quadro = 16'hAFFF; end
+        join
+        confere(16'hA5A5, "quadro congelado durante a transferencia");
 
-        telemetria_esperada = {fase_carro_atual, contagem_regressiva}; // 0b01101010
-
-        if (miso !== telemetria_esperada[7]) begin
-            erros = erros + 1;
-            $display("[FALHA] MSB da telemetria incorreto logo apos cs_n=0 (miso=%b esperado=%b)",
-                      miso, telemetria_esperada[7]);
-        end else $display("[OK]    MISO ja apresenta o MSB da telemetria ao iniciar o quadro (handshake)");
-
-        // ---- envia o comando (opcode=10 valor=000101 -> 0x85) ----
-        comando_enviado = 8'b10000101;
-        for (k = 7; k >= 0; k = k - 1)
-            pulso_sclk(comando_enviado[k]);
-
-        espera_clk(1);
-
-        if (comando_recebido !== comando_enviado) begin
-            erros = erros + 1;
-            $display("[FALHA] comando_recebido=0x%h, esperado 0x%h", comando_recebido, comando_enviado);
-        end else $display("[OK]    comando_recebido=0x%h corretamente apos 8 pulsos de sclk", comando_recebido);
-
-        // ---- fim do quadro (handshake: cs_n sobe) ----
-        cs_n = 1;
-        espera_clk(1);
-        if (miso !== 1'bz) begin
-            erros = erros + 1;
-            $display("[FALHA] miso nao voltou a alta impedancia ao fim do quadro");
-        end else $display("[OK]    miso volta a alta impedancia ao fim do quadro (handshake completo)");
-
-        if (erros == 0)
-            $display("RESULTADO: TODOS OS CASOS PASSARAM (4/4)");
-        else
-            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
+        if (erros == 0) $display("RESULTADO: TODOS OS CASOS PASSARAM");
+        else            $display("RESULTADO: %0d CASO(S) FALHARAM", erros);
         $finish;
     end
 endmodule

@@ -1,21 +1,28 @@
-// sensor_veiculo: encapsula o debounce do sensor de veiculos (sensor de
-// obstaculo reflexivo infravermelho -- saida digital direta, sem trigger/echo,
-// compativel com 3,3V) e gera um pulso de 1 ciclo a cada deteccao (borda de
-// subida do sinal filtrado), usado para contagem.
+// sensor_veiculo: le o sensor IR de obstaculo (tipo FC-51) que detecta
+// veiculos. Filtra o sinal com debounce e gera 1 pulso por veiculo (borda
+// de subida da deteccao). Os pulsos alimentam a contagem de fluxo em
+// top_semaforo.
+//
+// Parametro:
+//   N_CICLOS - ciclos de estabilidade exigidos pelo debounce
+// Portas:
+//   sensor_ativo  - saida do sensor ja convertida para ativo em ALTO
+//                   (1 = obstaculo na frente do sensor)
+//   veiculo_pulso - 1 ciclo em 1 a cada nova deteccao de veiculo
 module sensor_veiculo #(
-    parameter N_CYCLES = 8
+    parameter integer N_CICLOS = 135_000
 ) (
     input  wire clk,
     input  wire rst_n,
-    input  wire sensor_raw,
-    output wire sensor_estavel,
-    output wire veiculo_pulso     // pulso de 1 ciclo por veiculo detectado
+    input  wire sensor_ativo,
+    output wire veiculo_pulso
 );
-    reg estavel_ant;
+    wire sensor_estavel;   // deteccao filtrada (1 enquanto ha veiculo na frente do sensor)
+    reg  estavel_ant;      // sensor_estavel no ciclo anterior, para detectar a borda
 
-    debounce #(.N_CYCLES(N_CYCLES)) u_debounce (
+    debounce #(.N_CICLOS(N_CICLOS)) u_debounce (
         .clk(clk), .rst_n(rst_n),
-        .in_raw(sensor_raw), .out_stable(sensor_estavel)
+        .entrada(sensor_ativo), .saida(sensor_estavel)
     );
 
     always @(posedge clk or negedge rst_n) begin
@@ -25,5 +32,5 @@ module sensor_veiculo #(
             estavel_ant <= sensor_estavel;
     end
 
-    assign veiculo_pulso = sensor_estavel & ~estavel_ant; // deteccao de borda de subida
+    assign veiculo_pulso = sensor_estavel & ~estavel_ant;
 endmodule
